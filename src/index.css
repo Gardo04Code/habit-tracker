@@ -1,0 +1,54 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: #f5f7fb;
+  --color-surface: #ffffff;
+  --color-surface-muted: #eef2f7;
+  --color-text-primary: #172033;
+  --color-text-secondary: #667085;
+  --color-text-disabled: #a3acbb;
+  --color-border: #dfe5ec;
+
+  --color-primary: #4f6df5;
+  --color-primary-hover: #3d5ae0;
+  --color-primary-muted: #e8ecfe;
+
+  --color-success: #2eaf76;
+  --color-success-muted: #e3f6ec;
+  --color-warning: #e5a437;
+  --color-warning-muted: #fcf1dd;
+  --color-danger: #dc6673;
+  --color-danger-muted: #fbe9eb;
+  --color-neutral: #8a94a6;
+  --color-neutral-muted: #eef1f5;
+  --color-purple: #7c5ce7;
+  --color-purple-muted: #ede8fc;
+  --color-streak: #f08a3c;
+  --color-streak-muted: #fdead9;
+
+  --font-sans: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  html {
+    color-scheme: light;
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--color-background);
+    color: var(--color-text-primary);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+}
