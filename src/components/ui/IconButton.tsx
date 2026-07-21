@@ -5,13 +5,14 @@ import type { ButtonVariant } from "./Button";
 interface IconButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   icon: ReactNode;
   label: string;
-  variant?: Extract<ButtonVariant, "ghost" | "secondary" | "primary">;
+  variant?: Extract<ButtonVariant, "ghost" | "secondary" | "primary" | "danger">;
 }
 
 const VARIANT_CLASSES: Record<string, string> = {
   ghost: "bg-transparent text-text-secondary hover:bg-surface-muted hover:text-text-primary",
   secondary: "bg-surface text-text-primary border border-border hover:bg-surface-muted",
   primary: "bg-primary text-white hover:bg-primary-hover",
+  danger: "bg-surface text-danger border border-border hover:bg-danger-muted hover:border-danger",
 };
 
 export function IconButton({

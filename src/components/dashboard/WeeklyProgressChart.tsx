@@ -9,7 +9,7 @@ interface WeeklyProgressChartProps {
 export function WeeklyProgressChart({ data }: WeeklyProgressChartProps) {
   return (
     <ChartContainer>
-      <BarChart data={data} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+      <BarChart data={data} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
         <CartesianGrid vertical={false} stroke="var(--color-border)" />
         <XAxis
           dataKey="label"
@@ -23,6 +23,7 @@ export function WeeklyProgressChart({ data }: WeeklyProgressChartProps) {
           axisLine={false}
           width={36}
           domain={[0, 100]}
+          ticks={[0, 25, 50, 75, 100]}
           tick={{ fontSize: 12, fill: "var(--color-text-secondary)" }}
         />
         <Tooltip

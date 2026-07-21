@@ -12,7 +12,7 @@ export function MobileMoreMenu({ isOpen, onClose }: MobileMoreMenuProps) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-40 flex items-end bg-text-primary/40 lg:hidden">
+    <div className="fixed inset-0 z-40 flex items-end bg-text-primary/40 md:hidden">
       <button type="button" aria-label="Cerrar" className="absolute inset-0" onClick={onClose} />
       <div className="relative w-full rounded-t-2xl bg-surface p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
         <div className="mb-2 flex items-center justify-between">

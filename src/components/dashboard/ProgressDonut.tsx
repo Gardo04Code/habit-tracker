@@ -13,28 +13,30 @@ export function ProgressDonut({ data }: ProgressDonutProps) {
 
   return (
     <div className="flex flex-col items-center gap-4 sm:flex-row">
-      <ChartContainer height={180}>
-        <PieChart>
-          <Pie
-            data={data}
-            dataKey="count"
-            nameKey="status"
-            innerRadius={54}
-            outerRadius={78}
-            paddingAngle={2}
-            stroke="var(--color-surface)"
-            strokeWidth={2}
-          >
-            {data.map((point) => (
-              <Cell key={point.status} fill={getStatusColorVar(point.status)} />
-            ))}
-          </Pie>
-          <Tooltip
-            contentStyle={{ borderRadius: 12, border: "1px solid var(--color-border)", fontSize: 13 }}
-            formatter={(value, name) => [`${value} registros`, getStatusLabel(name as HabitStatus)]}
-          />
-        </PieChart>
-      </ChartContainer>
+      <div className="w-[180px] shrink-0">
+        <ChartContainer height={180}>
+          <PieChart>
+            <Pie
+              data={data}
+              dataKey="count"
+              nameKey="status"
+              innerRadius={54}
+              outerRadius={78}
+              paddingAngle={2}
+              stroke="var(--color-surface)"
+              strokeWidth={2}
+            >
+              {data.map((point) => (
+                <Cell key={point.status} fill={getStatusColorVar(point.status)} />
+              ))}
+            </Pie>
+            <Tooltip
+              contentStyle={{ borderRadius: 12, border: "1px solid var(--color-border)", fontSize: 13 }}
+              formatter={(value, name) => [`${value} registros`, getStatusLabel(name as HabitStatus)]}
+            />
+          </PieChart>
+        </ChartContainer>
+      </div>
       <ul className="flex flex-1 flex-col gap-2 text-sm">
         {data.map((point) => (
           <li key={point.status} className="flex items-center justify-between gap-3">
