@@ -3,8 +3,8 @@ import type { NavigationItem } from "../types/navigation";
 
 export const primaryNavigation: NavigationItem[] = [
   { id: "dashboard", label: "Dashboard", path: "/", icon: LayoutDashboard },
-  { id: "checklist", label: "Checklist diario", path: "/checklist", icon: ListChecks },
-  { id: "habits", label: "Mis hábitos", path: "/habits", icon: Repeat },
+  { id: "checklist", label: "Checklist diario", shortLabel: "Checklist", path: "/checklist", icon: ListChecks },
+  { id: "habits", label: "Mis hábitos", shortLabel: "Hábitos", path: "/habits", icon: Repeat },
   { id: "history", label: "Historial", path: "/history", icon: History },
   { id: "statistics", label: "Estadísticas", path: "/statistics", icon: BarChart3 },
   { id: "goals", label: "Metas", path: "/goals", icon: Target },

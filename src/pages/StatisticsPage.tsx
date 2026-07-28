@@ -1,5 +1,6 @@
 import { BarChart3 } from "lucide-react";
 import { useStatistics } from "../hooks/useStatistics";
+import { downloadStatisticsCsv } from "../utils/exportStatistics";
 import { SectionHeader } from "../components/ui/SectionHeader";
 import { Card } from "../components/ui/Card";
 import { EmptyState } from "../components/ui/EmptyState";
@@ -7,9 +8,9 @@ import { StatisticsFilters } from "../components/statistics/StatisticsFilters";
 import { StatisticsKpis } from "../components/statistics/StatisticsKpis";
 import { EvolutionLineChart } from "../components/statistics/EvolutionLineChart";
 import { HabitComparisonChart } from "../components/statistics/HabitComparisonChart";
+import { ConsistencyMap } from "../components/statistics/ConsistencyMap";
 import { WeeklyProgressChart } from "../components/dashboard/WeeklyProgressChart";
 import { ProgressDonut } from "../components/dashboard/ProgressDonut";
-import { ConsistencyCalendar } from "../components/dashboard/ConsistencyCalendar";
 
 export function StatisticsPage() {
   const {
@@ -20,6 +21,7 @@ export function StatisticsPage() {
     setHabitId,
     setCategoryId,
     dailyRates,
+    trend,
     statusBreakdown,
     consistency,
     habitComparison,
@@ -30,7 +32,11 @@ export function StatisticsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <SectionHeader title="Estadísticas" description="Analiza tu comportamiento histórico y tus tendencias." />
+      <SectionHeader
+        icon={<BarChart3 size={20} aria-hidden="true" />}
+        title="Estadísticas"
+        description="Analiza tu comportamiento y descubre patrones para seguir mejorando."
+      />
 
       <StatisticsFilters
         period={period}
@@ -39,6 +45,7 @@ export function StatisticsPage() {
         onPeriodChange={setPeriod}
         onHabitChange={setHabitId}
         onCategoryChange={setCategoryId}
+        onExport={() => downloadStatisticsCsv(dailyRates, period)}
       />
 
       {hasInsufficientHistory ? (
@@ -55,10 +62,10 @@ export function StatisticsPage() {
         />
       ) : (
         <>
-          <StatisticsKpis kpis={kpis} />
+          <StatisticsKpis kpis={kpis} trend={trend} />
 
           <Card>
-            <SectionHeader title="Línea de evolución" description="Cumplimiento diario a lo largo del periodo seleccionado." />
+            <SectionHeader title="Evolución de hábitos" description="Cumplimiento diario a lo largo del periodo seleccionado." />
             <div className="mt-4">
               <EvolutionLineChart data={dailyRates} />
             </div>
@@ -66,15 +73,15 @@ export function StatisticsPage() {
 
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
             <Card>
-              <SectionHeader title="Cumplimiento por día" description="Barras diarias del periodo seleccionado." />
+              <SectionHeader title="Cumplimiento por día" description="Barras de los últimos 14 días." />
               <div className="mt-4">
-                <WeeklyProgressChart data={dailyRates} />
+                <WeeklyProgressChart data={dailyRates.slice(-14)} />
               </div>
             </Card>
             <Card>
               <SectionHeader title="Distribución de estados" description="Registros del periodo por estado." />
               <div className="mt-4">
-                <ProgressDonut data={statusBreakdown} />
+                <ProgressDonut data={statusBreakdown.filter((entry) => entry.count > 0)} />
               </div>
             </Card>
           </div>
@@ -87,9 +94,9 @@ export function StatisticsPage() {
           </Card>
 
           <Card>
-            <SectionHeader title="Heatmap de consistencia" description="Últimas 5 semanas, independiente del periodo." />
+            <SectionHeader title="Mapa de consistencia" description="Últimas 8 semanas, independiente del periodo." />
             <div className="mt-4">
-              <ConsistencyCalendar days={consistency} />
+              <ConsistencyMap days={consistency} />
             </div>
           </Card>
         </>

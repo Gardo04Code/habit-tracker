@@ -1,7 +1,10 @@
+import { Upload } from "lucide-react";
 import type { StatisticsPeriod } from "../../hooks/useStatistics";
 import { statisticsHabits } from "../../hooks/useStatistics";
 import { mockCategories } from "../../data/mockCategories";
+import { Card } from "../ui/Card";
 import { Select } from "../ui/Select";
+import { Button } from "../ui/Button";
 
 interface StatisticsFiltersProps {
   period: StatisticsPeriod;
@@ -10,6 +13,7 @@ interface StatisticsFiltersProps {
   onPeriodChange: (value: StatisticsPeriod) => void;
   onHabitChange: (value: string) => void;
   onCategoryChange: (value: string) => void;
+  onExport: () => void;
 }
 
 const PERIOD_OPTIONS: { value: string; label: string }[] = [
@@ -25,9 +29,10 @@ export function StatisticsFilters({
   onPeriodChange,
   onHabitChange,
   onCategoryChange,
+  onExport,
 }: StatisticsFiltersProps) {
   return (
-    <div className="grid grid-cols-1 gap-3 rounded-xl border border-border bg-surface p-4 sm:grid-cols-3">
+    <Card className="grid grid-cols-1 items-end gap-3 sm:grid-cols-2 xl:grid-cols-[1fr_1fr_1fr_auto]">
       <Select
         label="Periodo"
         value={String(period)}
@@ -52,6 +57,9 @@ export function StatisticsFilters({
           ...mockCategories.map((category) => ({ value: category.id, label: category.name })),
         ]}
       />
-    </div>
+      <Button variant="secondary" leadingIcon={<Upload size={16} />} onClick={onExport} className="w-full xl:w-auto">
+        Exportar
+      </Button>
+    </Card>
   );
 }

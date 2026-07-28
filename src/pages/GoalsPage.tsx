@@ -1,12 +1,15 @@
 import { useMemo, useState } from "react";
+import { motion } from "framer-motion";
 import { Plus, Target } from "lucide-react";
 import type { Goal } from "../types/goal";
 import { useGoalsManager } from "../hooks/useGoalsManager";
 import { getHabitById } from "../data/mockHabits";
 import { SectionHeader } from "../components/ui/SectionHeader";
 import { Button } from "../components/ui/Button";
+import { Card } from "../components/ui/Card";
 import { EmptyState } from "../components/ui/EmptyState";
-import { GoalCard } from "../components/goals/GoalCard";
+import { GoalGeneralHero } from "../components/goals/GoalGeneralHero";
+import { GoalListRow } from "../components/goals/GoalListRow";
 import { GoalStatusTabs, type GoalStatusFilter } from "../components/goals/GoalStatusTabs";
 import { GoalFormModal } from "../components/goals/GoalFormModal";
 
@@ -27,6 +30,9 @@ export function GoalsPage() {
   }, [habitGoals]);
 
   const visibleHabitGoals = habitGoals.filter((goal) => statusFilter === "all" || goal.status === statusFilter);
+
+  const listVariants = { hidden: {}, show: { transition: { staggerChildren: 0.04 } } };
+  const rowVariants = { hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0 } };
 
   function handleSubmit(draft: Parameters<typeof addGoal>[0]) {
     if (formGoal && formGoal !== "new") {
@@ -58,26 +64,25 @@ export function GoalsPage() {
         }
       />
 
-      <section className="flex flex-col gap-3">
-        <SectionHeader title="Meta general" description="Objetivo global de constancia." />
-        {generalGoals.length === 0 ? (
-          <EmptyState
-            icon={<Target size={20} aria-hidden="true" />}
-            title="No tienes una meta general"
-            description="Crea una meta sin hábito asociado para fijar un objetivo global del mes."
-          />
-        ) : (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {generalGoals.map((goal) => (
-              <GoalCard key={goal.id} goal={goal} habit={undefined} {...actionsFor(goal)} />
-            ))}
-          </div>
-        )}
-      </section>
+      {generalGoals.length === 0 ? (
+        <EmptyState
+          icon={<Target size={20} aria-hidden="true" />}
+          title="No tienes una meta general"
+          description="Crea una meta sin hábito asociado para fijar un objetivo global del mes."
+        />
+      ) : (
+        <div className="flex flex-col gap-4">
+          {generalGoals.map((goal) => (
+            <GoalGeneralHero key={goal.id} goal={goal} sectionDescription="Objetivo global de constancia." />
+          ))}
+        </div>
+      )}
 
       <section className="flex flex-col gap-3">
-        <SectionHeader title="Metas por hábito" description="Objetivos asociados a un hábito específico." />
-        <GoalStatusTabs value={statusFilter} onChange={setStatusFilter} counts={counts} />
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <SectionHeader title="Metas por hábito" description="Objetivos asociados a un hábito específico." />
+          <GoalStatusTabs value={statusFilter} onChange={setStatusFilter} counts={counts} />
+        </div>
 
         {visibleHabitGoals.length === 0 ? (
           <EmptyState
@@ -86,11 +91,13 @@ export function GoalsPage() {
             description="Ajusta el filtro o crea una nueva meta asociada a un hábito."
           />
         ) : (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <Card padded={false} className="overflow-hidden" key={statusFilter} variants={listVariants} initial="hidden" animate="show">
             {visibleHabitGoals.map((goal) => (
-              <GoalCard key={goal.id} goal={goal} habit={getHabitById(goal.habitId!)} {...actionsFor(goal)} />
+              <motion.div key={goal.id} variants={rowVariants}>
+                <GoalListRow goal={goal} habit={getHabitById(goal.habitId!)} {...actionsFor(goal)} />
+              </motion.div>
             ))}
-          </div>
+          </Card>
         )}
       </section>
 

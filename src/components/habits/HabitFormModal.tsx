@@ -1,9 +1,10 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
+import { Calendar, Palette, Repeat as RepeatIcon, Sparkles, Tag, Target } from "lucide-react";
 import type { FrequencyType, GoalType, Habit } from "../../types/habit";
 import type { HabitDraft } from "../../hooks/useHabitsManager";
 import { mockCategories } from "../../data/mockCategories";
-import { HABIT_COLOR_OPTIONS, HABIT_ICON_OPTIONS, getHabitIcon } from "../../utils/habitIcons";
+import { HABIT_COLOR_OPTIONS, HABIT_ICON_OPTIONS } from "../../utils/habitIcons";
 import { TODAY } from "../../data/referenceDate";
 import { Modal } from "../ui/Modal";
 import { Button } from "../ui/Button";
@@ -11,7 +12,19 @@ import { Input } from "../ui/Input";
 import { TextArea } from "../ui/TextArea";
 import { Select } from "../ui/Select";
 import { Toggle } from "../ui/Toggle";
+import { HabitIcon3D } from "../ui/HabitIcon3D";
 import clsx from "clsx";
+
+function SectionTitle({ icon: Icon, children }: { icon: typeof Sparkles; children: string }) {
+  return (
+    <h3 className="flex items-center gap-2 text-sm font-semibold text-text-primary">
+      <span className="flex h-6 w-6 items-center justify-center rounded-md bg-primary-muted text-primary">
+        <Icon size={13} aria-hidden="true" />
+      </span>
+      {children}
+    </h3>
+  );
+}
 
 interface HabitFormModalProps {
   isOpen: boolean;
@@ -199,8 +212,6 @@ function HabitFormModalContent({ habit, isNameTaken, onClose, onSubmit }: HabitF
     onClose();
   }
 
-  const PreviewIcon = getHabitIcon(form.icon);
-
   return (
     <Modal
       isOpen
@@ -220,7 +231,7 @@ function HabitFormModalContent({ habit, isNameTaken, onClose, onSubmit }: HabitF
     >
       <form className="flex flex-col gap-6" onSubmit={handleSubmit}>
         <section className="flex flex-col gap-3">
-          <h3 className="text-sm font-semibold text-text-primary">Datos básicos</h3>
+          <SectionTitle icon={Sparkles}>Datos básicos</SectionTitle>
           <Input
             label="Nombre"
             value={form.name}
@@ -237,7 +248,7 @@ function HabitFormModalContent({ habit, isNameTaken, onClose, onSubmit }: HabitF
         </section>
 
         <section className="flex flex-col gap-3">
-          <h3 className="text-sm font-semibold text-text-primary">Categorías</h3>
+          <SectionTitle icon={Tag}>Categorías</SectionTitle>
           <div className="flex flex-wrap gap-2">
             {mockCategories.map((category) => {
               const isSelected = form.categoryIds.includes(category.id);
@@ -261,7 +272,7 @@ function HabitFormModalContent({ habit, isNameTaken, onClose, onSubmit }: HabitF
         </section>
 
         <section className="flex flex-col gap-3">
-          <h3 className="text-sm font-semibold text-text-primary">Frecuencia</h3>
+          <SectionTitle icon={RepeatIcon}>Frecuencia</SectionTitle>
           <Select
             label="Tipo de frecuencia"
             value={form.frequencyType}
@@ -309,7 +320,7 @@ function HabitFormModalContent({ habit, isNameTaken, onClose, onSubmit }: HabitF
         </section>
 
         <section className="flex flex-col gap-3">
-          <h3 className="text-sm font-semibold text-text-primary">Tipo de meta</h3>
+          <SectionTitle icon={Target}>Tipo de meta</SectionTitle>
           <Select
             label="Meta"
             value={form.goalType}
@@ -357,7 +368,7 @@ function HabitFormModalContent({ habit, isNameTaken, onClose, onSubmit }: HabitF
         </section>
 
         <section className="flex flex-col gap-3">
-          <h3 className="text-sm font-semibold text-text-primary">Vigencia</h3>
+          <SectionTitle icon={Calendar}>Vigencia</SectionTitle>
           <div className="grid grid-cols-2 gap-3">
             <Input
               label="Fecha de inicio"
@@ -376,15 +387,9 @@ function HabitFormModalContent({ habit, isNameTaken, onClose, onSubmit }: HabitF
         </section>
 
         <section className="flex flex-col gap-3">
-          <h3 className="text-sm font-semibold text-text-primary">Apariencia</h3>
-          <div className="flex items-center gap-3">
-            <span
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white"
-              style={{ backgroundColor: form.color }}
-            >
-              {/* eslint-disable-next-line react-hooks/static-components -- getHabitIcon resolves a stable reference from a static icon map, it never defines a new component type. */}
-              <PreviewIcon size={20} aria-hidden="true" />
-            </span>
+          <SectionTitle icon={Palette}>Apariencia</SectionTitle>
+          <div className="flex items-center gap-4">
+            <HabitIcon3D iconName={form.icon} color={form.color} size={56} />
             <div className="flex flex-1 flex-col gap-3">
               <div className="flex flex-wrap gap-2">
                 {HABIT_ICON_OPTIONS.map((option) => (

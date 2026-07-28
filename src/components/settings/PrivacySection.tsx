@@ -1,4 +1,4 @@
-import { Download, ShieldAlert, Trash2 } from "lucide-react";
+import { Download, Shield, ShieldAlert, Trash2 } from "lucide-react";
 import { Card } from "../ui/Card";
 import { SectionHeader } from "../ui/SectionHeader";
 import { Button } from "../ui/Button";
@@ -6,8 +6,8 @@ import { Badge } from "../ui/Badge";
 
 export function PrivacySection() {
   return (
-    <Card className="flex flex-col gap-4">
-      <SectionHeader title="Privacidad" description="Control sobre tus datos dentro de la aplicación." />
+    <Card className="flex h-full flex-col gap-4">
+      <SectionHeader icon={<Shield size={18} aria-hidden="true" />} title="Privacidad" description="Control sobre tus datos dentro de la aplicación." />
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">

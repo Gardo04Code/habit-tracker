@@ -1,3 +1,4 @@
+import { SlidersHorizontal } from "lucide-react";
 import type { TimeFormat } from "../../hooks/useSettingsForm";
 import { Card } from "../ui/Card";
 import { SectionHeader } from "../ui/SectionHeader";
@@ -42,8 +43,12 @@ export function PreferencesSection({
   onTimeFormatChange,
 }: PreferencesSectionProps) {
   return (
-    <Card className="flex flex-col gap-4">
-      <SectionHeader title="Preferencias" description="Ajustes que afectan cómo se muestran tus fechas y horarios." />
+    <Card className="flex h-full flex-col gap-4">
+      <SectionHeader
+        icon={<SlidersHorizontal size={18} aria-hidden="true" />}
+        title="Preferencias"
+        description="Ajustes que afectan cómo se muestran tus fechas y horarios."
+      />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Select label="Zona horaria" value={timezone} onChange={(event) => onTimezoneChange(event.target.value)} options={TIMEZONE_OPTIONS} />

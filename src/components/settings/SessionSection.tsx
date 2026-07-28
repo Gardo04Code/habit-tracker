@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { LogOut } from "lucide-react";
+import { KeyRound, LogOut } from "lucide-react";
 import { Card } from "../ui/Card";
 import { SectionHeader } from "../ui/SectionHeader";
 import { Button } from "../ui/Button";
@@ -10,7 +10,7 @@ export function SessionSection() {
 
   return (
     <Card className="flex flex-col gap-4">
-      <SectionHeader title="Sesión" description="Administra tu sesión actual." />
+      <SectionHeader icon={<KeyRound size={18} aria-hidden="true" />} title="Sesión" description="Administra tu sesión actual." />
       <Button
         variant="danger"
         size="sm"

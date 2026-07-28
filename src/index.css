@@ -1,41 +1,121 @@
 @import "tailwindcss";
 
+/*
+ * Sistema de color: familia "Oxford Blue" (navy + gris oscuro) como únicos
+ * colores principales, con un solo acento interactivo derivado de la misma
+ * familia. Los 4 semánticos (éxito/advertencia/error/información) son los
+ * únicos colores que rompen la paleta, y solo para comunicar estado.
+ * Los tokens semánticos abajo son CSS custom properties normales (no
+ * @theme) para poder cambiarlos en tiempo de ejecución vía [data-theme].
+ */
+:root {
+  color-scheme: dark;
+
+  --background: #05070d;
+  --surface: #0b1220;
+  --surface-elevated: #131b2c;
+  --surface-muted: #161f33;
+  --text-primary: #f4f6fb;
+  --text-secondary: #93a0b8;
+  --text-disabled: #58637a;
+  --border: rgba(148, 163, 184, 0.14);
+  --border-strong: rgba(148, 163, 184, 0.26);
+
+  --primary: #4c7cf0;
+  --primary-hover: #6b93f4;
+  --primary-muted: rgba(76, 124, 240, 0.18);
+
+  --success: #34d399;
+  --success-muted: rgba(52, 211, 153, 0.16);
+  --warning: #fbbf24;
+  --warning-muted: rgba(251, 191, 36, 0.16);
+  --danger: #f87171;
+  --danger-muted: rgba(248, 113, 113, 0.16);
+  --info: #38bdf8;
+  --info-muted: rgba(56, 189, 248, 0.16);
+
+  --glass-bg: rgba(19, 27, 44, 0.6);
+  --glass-border: rgba(148, 163, 184, 0.16);
+  --glass-blur: 20px;
+
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-2: 0 10px 24px -8px rgba(0, 0, 0, 0.55);
+  --shadow-3: 0 28px 56px -16px rgba(0, 0, 0, 0.65);
+  --shadow-glow: 0 0 0 1px rgba(76, 124, 240, 0.4), 0 8px 28px -6px rgba(76, 124, 240, 0.45);
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --background: #f4f6fb;
+  --surface: #ffffff;
+  --surface-elevated: #ffffff;
+  --surface-muted: #eef2f8;
+  --text-primary: #0f172a;
+  --text-secondary: #56607a;
+  --text-disabled: #a1abc2;
+  --border: #e2e7f1;
+  --border-strong: #cdd5e6;
+
+  --primary: #3457c9;
+  --primary-hover: #2846a8;
+  --primary-muted: #e6ecfc;
+
+  --success: #16a34a;
+  --success-muted: #e6f7ec;
+  --warning: #d97706;
+  --warning-muted: #fdf1dd;
+  --danger: #dc2626;
+  --danger-muted: #fbe9e9;
+  --info: #0284c7;
+  --info-muted: #e3f3fc;
+
+  --glass-bg: rgba(255, 255, 255, 0.6);
+  --glass-border: rgba(15, 23, 42, 0.08);
+  --glass-blur: 20px;
+
+  --shadow-1: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow-2: 0 10px 24px -8px rgba(15, 23, 42, 0.12);
+  --shadow-3: 0 28px 56px -16px rgba(15, 23, 42, 0.16);
+  --shadow-glow: 0 0 0 1px rgba(52, 87, 201, 0.28), 0 8px 24px -6px rgba(52, 87, 201, 0.28);
+}
+
 @theme {
-  --color-background: #f5f7fb;
-  --color-surface: #ffffff;
-  --color-surface-muted: #eef2f7;
-  --color-text-primary: #172033;
-  --color-text-secondary: #667085;
-  --color-text-disabled: #a3acbb;
-  --color-border: #dfe5ec;
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-surface-muted: var(--surface-muted);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-disabled: var(--text-disabled);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
 
-  --color-primary: #4f6df5;
-  --color-primary-hover: #3d5ae0;
-  --color-primary-muted: #e8ecfe;
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-muted: var(--primary-muted);
 
-  --color-success: #2eaf76;
-  --color-success-muted: #e3f6ec;
-  --color-warning: #e5a437;
-  --color-warning-muted: #fcf1dd;
-  --color-danger: #dc6673;
-  --color-danger-muted: #fbe9eb;
-  --color-neutral: #8a94a6;
-  --color-neutral-muted: #eef1f5;
-  --color-purple: #7c5ce7;
-  --color-purple-muted: #ede8fc;
-  --color-streak: #f08a3c;
-  --color-streak-muted: #fdead9;
+  --color-success: var(--success);
+  --color-success-muted: var(--success-muted);
+  --color-warning: var(--warning);
+  --color-warning-muted: var(--warning-muted);
+  --color-danger: var(--danger);
+  --color-danger-muted: var(--danger-muted);
+  --color-info: var(--info);
+  --color-info-muted: var(--info-muted);
 
-  --font-sans: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+  /* "neutral" reusa texto/superficie secundarios; "purple"/"streak" quedan
+     como alias del acento único (ver Badge/ProgressBar/MetricCard) en vez
+     de introducir un tercer color decorativo. */
+  --color-neutral: var(--text-secondary);
+  --color-neutral-muted: var(--surface-muted);
+
+  --font-sans: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
 }
 
 @layer base {
   * {
     border-color: var(--color-border);
-  }
-
-  html {
-    color-scheme: light;
   }
 
   body {
@@ -45,10 +125,62 @@
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    transition: background-color 0.2s ease, color 0.2s ease;
   }
 
   :focus-visible {
     outline: 2px solid var(--color-primary);
     outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@layer utilities {
+  .animate-shimmer {
+    animation: shimmer 1.6s ease-in-out infinite;
+  }
+
+  .shadow-elevation-1 {
+    box-shadow: var(--shadow-1);
+  }
+  .shadow-elevation-2 {
+    box-shadow: var(--shadow-2);
+  }
+  .shadow-elevation-3 {
+    box-shadow: var(--shadow-3);
+  }
+  .shadow-glow {
+    box-shadow: var(--shadow-glow);
+  }
+
+  .glass-surface {
+    background: var(--glass-bg);
+    backdrop-filter: blur(var(--glass-blur)) saturate(160%);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%);
+    border: 1px solid var(--glass-border);
+  }
+
+  .scrollbar-none {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
   }
 }

@@ -14,6 +14,7 @@ export interface StatusBreakdownPoint {
 export interface ConsistencyDay {
   date: string;
   completionRate: number;
+  hasData?: boolean;
 }
 
 export interface HabitStrengthEntry {

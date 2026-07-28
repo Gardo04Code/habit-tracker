@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { mockUser } from "../data/mockUser";
 
-export type ThemePreference = "light" | "dark" | "system";
 export type TimeFormat = "12h" | "24h";
 
 export interface NotificationPreferences {
@@ -17,7 +16,6 @@ export function useSettingsForm() {
   const [timezone, setTimezone] = useState(mockUser.timezone);
   const [weekStartsOn, setWeekStartsOn] = useState<0 | 1>(mockUser.weekStartsOn);
   const [timeFormat, setTimeFormat] = useState<TimeFormat>("12h");
-  const [theme, setTheme] = useState<ThemePreference>("system");
   const [notifications, setNotifications] = useState<NotificationPreferences>({
     streakAtRisk: true,
     abandonedHabit: true,
@@ -46,8 +44,6 @@ export function useSettingsForm() {
     setWeekStartsOn,
     timeFormat,
     setTimeFormat,
-    theme,
-    setTheme,
     notifications,
     toggleNotification,
     isProfileSaved,

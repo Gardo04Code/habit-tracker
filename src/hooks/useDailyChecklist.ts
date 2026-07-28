@@ -88,6 +88,15 @@ export function useDailyChecklist(initialDate: string = TODAY) {
     applyOverride(habit.id, { status: "not_applicable", value: undefined });
   }
 
+  function resetEntry(habit: Habit) {
+    const key = overrideKey(habit.id, selectedDate);
+    setOverrides((current) => {
+      const next = { ...current };
+      delete next[key];
+      return next;
+    });
+  }
+
   function setNote(habit: Habit, note: string) {
     const key = overrideKey(habit.id, selectedDate);
     const current = overrides[key];
@@ -108,6 +117,7 @@ export function useDailyChecklist(initialDate: string = TODAY) {
     setValue,
     setRecordedTime,
     markNotApplicable,
+    resetEntry,
     setNote,
   };
 }

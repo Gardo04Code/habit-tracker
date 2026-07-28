@@ -6,18 +6,19 @@ import { Card } from "../ui/Card";
 interface MetricCardProps {
   icon: ReactNode;
   label: string;
-  value: string;
+  value: ReactNode;
   helpText?: string;
   trendValue?: number;
   trendLabel?: string;
   tone?: "primary" | "success" | "purple" | "streak";
 }
 
+/** "purple"/"streak" son alias de "primary": un solo acento en toda la app. */
 const TONE_CLASSES: Record<NonNullable<MetricCardProps["tone"]>, string> = {
   primary: "bg-primary-muted text-primary",
   success: "bg-success-muted text-success",
-  purple: "bg-purple-muted text-purple",
-  streak: "bg-streak-muted text-streak",
+  purple: "bg-primary-muted text-primary",
+  streak: "bg-primary-muted text-primary",
 };
 
 export function MetricCard({ icon, label, value, helpText, trendValue, trendLabel, tone = "primary" }: MetricCardProps) {
@@ -25,7 +26,7 @@ export function MetricCard({ icon, label, value, helpText, trendValue, trendLabe
   const isPositive = (trendValue ?? 0) >= 0;
 
   return (
-    <Card className="flex flex-col gap-3">
+    <Card interactive className="flex h-full flex-col gap-3">
       <div className="flex items-center justify-between">
         <span className={clsx("flex h-9 w-9 items-center justify-center rounded-lg", TONE_CLASSES[tone])}>
           {icon}
@@ -44,7 +45,7 @@ export function MetricCard({ icon, label, value, helpText, trendValue, trendLabe
         )}
       </div>
       <div>
-        <p className="text-2xl font-semibold text-text-primary">{value}</p>
+        <p className="text-2xl font-semibold tracking-tight text-text-primary">{value}</p>
         <p className="text-sm text-text-secondary">{label}</p>
       </div>
       {helpText && <p className="text-xs text-text-disabled">{helpText}</p>}

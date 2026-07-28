@@ -1,33 +1,73 @@
 import { CalendarDays, Flame, Sparkles, ThumbsDown, ThumbsUp, TrendingUp, Trophy } from "lucide-react";
 import type { useStatistics } from "../../hooks/useStatistics";
-import { MetricCard } from "../dashboard/MetricCard";
+import { KpiCard } from "../ui/KpiCard";
 
 interface StatisticsKpisProps {
   kpis: ReturnType<typeof useStatistics>["kpis"];
+  trend: number[];
 }
 
-export function StatisticsKpis({ kpis }: StatisticsKpisProps) {
+export function StatisticsKpis({ kpis, trend }: StatisticsKpisProps) {
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      <MetricCard icon={<CalendarDays size={18} aria-hidden="true" />} label="Cumplimiento diario" value={`${kpis.daily}%`} tone="primary" />
-      <MetricCard icon={<TrendingUp size={18} aria-hidden="true" />} label="Cumplimiento semanal" value={`${kpis.weekly}%`} tone="primary" />
-      <MetricCard icon={<Sparkles size={18} aria-hidden="true" />} label="Cumplimiento mensual" value={`${kpis.monthly}%`} tone="success" />
-      <MetricCard
-        icon={<ThumbsUp size={18} aria-hidden="true" />}
+      <KpiCard
+        icon={<CalendarDays size={18} aria-hidden="true" />}
+        label="Cumpl. diario"
+        value={`${kpis.daily}%`}
+        trend={trend}
+        tone="primary"
+        index={0}
+      />
+      <KpiCard
+        icon={<TrendingUp size={18} aria-hidden="true" />}
+        label="Cumpl. semanal"
+        value={`${kpis.weekly}%`}
+        trend={trend}
+        tone="info"
+        index={1}
+      />
+      <KpiCard
+        icon={<Sparkles size={18} aria-hidden="true" />}
+        label="Cumpl. mensual"
+        value={`${kpis.monthly}%`}
+        trend={trend}
+        tone="success"
+        index={2}
+      />
+      <KpiCard
+        icon={<Trophy size={18} aria-hidden="true" />}
         label="Mejor día"
         value={kpis.bestWeekday ? kpis.bestWeekday.weekday : "—"}
-        helpText={kpis.bestWeekday ? `${kpis.bestWeekday.rate}% de cumplimiento` : "Sin datos suficientes"}
-        tone="success"
+        sublabel={kpis.bestWeekday ? `${kpis.bestWeekday.rate}% promedio` : "Sin datos"}
+        trend={trend}
+        tone="warning"
+        index={3}
       />
-      <MetricCard
+      <KpiCard
         icon={<ThumbsDown size={18} aria-hidden="true" />}
         label="Día más débil"
         value={kpis.worstWeekday ? kpis.worstWeekday.weekday : "—"}
-        helpText={kpis.worstWeekday ? `${kpis.worstWeekday.rate}% de cumplimiento` : "Sin datos suficientes"}
-        tone="purple"
+        sublabel={kpis.worstWeekday ? `${kpis.worstWeekday.rate}% promedio` : "Sin datos"}
+        trend={trend}
+        tone="danger"
+        index={4}
       />
-      <MetricCard icon={<Flame size={18} aria-hidden="true" />} label="Racha actual" value={`${kpis.currentStreak} días`} tone="streak" />
-      <MetricCard icon={<Trophy size={18} aria-hidden="true" />} label="Mejor racha" value={`${kpis.bestStreak} días`} tone="streak" />
+      <KpiCard
+        icon={<ThumbsUp size={18} aria-hidden="true" />}
+        label="Racha actual"
+        value={`${kpis.currentStreak} días`}
+        trend={trend}
+        tone="primary"
+        index={5}
+      />
+      <KpiCard
+        icon={<Flame size={18} aria-hidden="true" />}
+        label="Mejor racha"
+        value={`${kpis.bestStreak} días`}
+        trend={trend}
+        tone="info"
+        index={6}
+      />
     </div>
   );
 }

@@ -1,37 +1,40 @@
-import { useState } from "react";
-import { CalendarDays, CheckCircle2, Flame, Sparkles, Target } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { AnimatePresence } from "framer-motion";
+import { CalendarDays, CheckCircle2, Sparkles, Target } from "lucide-react";
 import { activeHabits } from "../data/mockHabits";
 import { mockDashboard } from "../data/mockDashboard";
-import { mockRecommendations } from "../data/mockRecommendations";
+import { getInsights } from "../utils/insightsEngine";
 import { mockUser } from "../data/mockUser";
 import { TODAY } from "../data/referenceDate";
 import { formatFullDate } from "../utils/formatDate";
 import { Card } from "../components/ui/Card";
 import { SectionHeader } from "../components/ui/SectionHeader";
 import { EmptyState } from "../components/ui/EmptyState";
+import { Skeleton } from "../components/ui/Skeleton";
+import { HeroMetric } from "../components/dashboard/HeroMetric";
 import { MetricCard } from "../components/dashboard/MetricCard";
 import { TodaySummary } from "../components/dashboard/TodaySummary";
 import { WeeklyProgressChart } from "../components/dashboard/WeeklyProgressChart";
+import { WeeklyInsightBanner } from "../components/dashboard/WeeklyInsightBanner";
 import { ProgressDonut } from "../components/dashboard/ProgressDonut";
-import { ConsistencyCalendar } from "../components/dashboard/ConsistencyCalendar";
+import { StreakTimeline } from "../components/dashboard/StreakTimeline";
 import { HabitStrengthList } from "../components/dashboard/HabitStrengthList";
-import { RecommendationCard } from "../components/dashboard/RecommendationCard";
+import { InsightCard } from "../components/dashboard/InsightCard";
 
 export function DashboardPage() {
-  const [visibleRecommendationIds, setVisibleRecommendationIds] = useState(
-    () => new Set(mockRecommendations.map((recommendation) => recommendation.id)),
-  );
+  const [isLoading, setIsLoading] = useState(true);
+  const insights = useMemo(() => getInsights(), []);
+  const [dismissedInsightIds, setDismissedInsightIds] = useState<Set<string>>(() => new Set());
 
-  const visibleRecommendations = mockRecommendations.filter((recommendation) =>
-    visibleRecommendationIds.has(recommendation.id),
-  );
+  useEffect(() => {
+    const timeout = setTimeout(() => setIsLoading(false), 550);
+    return () => clearTimeout(timeout);
+  }, []);
 
-  function dismissRecommendation(id: string) {
-    setVisibleRecommendationIds((current) => {
-      const next = new Set(current);
-      next.delete(id);
-      return next;
-    });
+  const visibleInsights = insights.filter((insight) => !dismissedInsightIds.has(insight.id));
+
+  function dismissInsight(id: string) {
+    setDismissedInsightIds((current) => new Set(current).add(id));
   }
 
   if (activeHabits.length === 0) {
@@ -47,7 +50,7 @@ export function DashboardPage() {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-1">
-        <h1 className="text-xl font-semibold text-text-primary sm:text-2xl">
+        <h1 className="text-xl font-semibold tracking-tight text-text-primary sm:text-2xl">
           Hola, {mockUser.name.split(" ")[0]}
         </h1>
         <p className="flex items-center gap-1.5 text-sm text-text-secondary capitalize">
@@ -56,35 +59,40 @@ export function DashboardPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard
-          icon={<CheckCircle2 size={18} aria-hidden="true" />}
-          label="Cumplimiento semanal"
-          value={`${mockDashboard.weeklyCompletionRate}%`}
-          trendValue={mockDashboard.weeklyCompletionTrend}
-          trendLabel="% vs. semana anterior"
-          tone="primary"
-        />
-        <MetricCard
-          icon={<Flame size={18} aria-hidden="true" />}
-          label="Racha actual"
-          value={`${mockDashboard.currentStreak} días`}
-          helpText={`Mejor racha del mes: ${mockDashboard.bestStreakThisMonth} días`}
-          tone="streak"
-        />
-        <MetricCard
-          icon={<Sparkles size={18} aria-hidden="true" />}
-          label="Hábitos completados hoy"
-          value={`${mockDashboard.habitsCompletedToday} de ${mockDashboard.totalHabitsToday}`}
-          tone="success"
-        />
-        <MetricCard
-          icon={<Target size={18} aria-hidden="true" />}
-          label="Meta mensual"
-          value={`${mockDashboard.monthlyGoalProgress}% de ${mockDashboard.monthlyGoalTarget}%`}
-          tone="purple"
-        />
-      </div>
+      {isLoading ? (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <Skeleton className="h-44 sm:col-span-2 lg:col-span-2" />
+          <Skeleton className="h-44" />
+          <Skeleton className="h-44" />
+          <Skeleton className="h-44" />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="sm:col-span-2 lg:col-span-2">
+            <HeroMetric streak={mockDashboard.currentStreak} bestStreak={mockDashboard.bestStreakThisMonth} />
+          </div>
+          <MetricCard
+            icon={<CheckCircle2 size={18} aria-hidden="true" />}
+            label="Cumplimiento semanal"
+            value={`${mockDashboard.weeklyCompletionRate}%`}
+            trendValue={mockDashboard.weeklyCompletionTrend}
+            trendLabel="% vs. semana anterior"
+            tone="primary"
+          />
+          <MetricCard
+            icon={<Sparkles size={18} aria-hidden="true" />}
+            label="Hábitos completados hoy"
+            value={`${mockDashboard.habitsCompletedToday} de ${mockDashboard.totalHabitsToday}`}
+            tone="success"
+          />
+          <MetricCard
+            icon={<Target size={18} aria-hidden="true" />}
+            label="Meta mensual"
+            value={`${mockDashboard.monthlyGoalProgress}% de ${mockDashboard.monthlyGoalTarget}%`}
+            tone="primary"
+          />
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
         <div className="flex flex-col gap-6 xl:col-span-2">
@@ -97,9 +105,26 @@ export function DashboardPage() {
           <Card>
             <SectionHeader title="Progreso semanal" description="Cumplimiento diario de los últimos 7 días." />
             <div className="mt-4">
-              <WeeklyProgressChart data={mockDashboard.weeklyProgress} />
+              <WeeklyProgressChart data={mockDashboard.weeklyProgress} goal={mockDashboard.monthlyGoalTarget} />
+            </div>
+            <div className="mt-2">
+              <WeeklyInsightBanner trend={mockDashboard.weeklyCompletionTrend} />
             </div>
           </Card>
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+            <Card>
+              <SectionHeader title="Hábitos más fuertes" description="Mayor cumplimiento reciente." />
+              <div className="mt-4">
+                <HabitStrengthList entries={mockDashboard.strongestHabits} variant="strong" />
+              </div>
+            </Card>
+            <Card>
+              <SectionHeader title="Hábitos por mejorar" description="Necesitan más atención esta semana." />
+              <div className="mt-4">
+                <HabitStrengthList entries={mockDashboard.weakestHabits} variant="weak" />
+              </div>
+            </Card>
+          </div>
         </div>
 
         <div className="flex flex-col gap-6">
@@ -110,47 +135,35 @@ export function DashboardPage() {
             </div>
           </Card>
           <Card>
-            <SectionHeader title="Constancia" description="Últimas 5 semanas." />
+            <SectionHeader title="Constancia" description="Tu racha de los últimos 5 días." />
             <div className="mt-4">
-              <ConsistencyCalendar days={mockDashboard.consistency} />
+              <StreakTimeline />
             </div>
           </Card>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Card>
-          <SectionHeader title="Hábitos más fuertes" description="Mayor cumplimiento reciente." />
-          <div className="mt-4">
-            <HabitStrengthList entries={mockDashboard.strongestHabits} variant="strong" />
-          </div>
-        </Card>
-        <Card>
-          <SectionHeader title="Hábitos por mejorar" description="Necesitan más atención esta semana." />
-          <div className="mt-4">
-            <HabitStrengthList entries={mockDashboard.weakestHabits} variant="weak" />
-          </div>
-        </Card>
-      </div>
-
       <Card>
-        <SectionHeader title="Recomendaciones" description="Sugerencias basadas en tus patrones recientes." />
-        <div className="mt-4 flex flex-col gap-3">
-          {visibleRecommendations.length > 0 ? (
-            visibleRecommendations.map((recommendation) => (
-              <RecommendationCard
-                key={recommendation.id}
-                recommendation={recommendation}
-                onDismiss={dismissRecommendation}
+        <SectionHeader
+          title="Centro de Inteligencia"
+          description="Análisis continuo de tus hábitos, generado por tu asistente de IA."
+        />
+        <div className="mt-4">
+          <AnimatePresence initial={false} mode="popLayout">
+            {visibleInsights.length > 0 ? (
+              <div className="scrollbar-none flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2 sm:grid sm:grid-cols-2 sm:overflow-visible lg:grid-cols-1 lg:gap-3">
+                {visibleInsights.map((insight, index) => (
+                  <InsightCard key={insight.id} insight={insight} index={index} onDismiss={dismissInsight} />
+                ))}
+              </div>
+            ) : (
+              <EmptyState
+                icon={<Sparkles size={20} aria-hidden="true" />}
+                title="No hay insights pendientes"
+                description="Tu asistente de IA seguirá analizando tus hábitos y avisará cuando encuentre algo relevante."
               />
-            ))
-          ) : (
-            <EmptyState
-              icon={<Sparkles size={20} aria-hidden="true" />}
-              title="No hay recomendaciones pendientes"
-              description="Vuelve más tarde para ver nuevas sugerencias basadas en tu actividad."
-            />
-          )}
+            )}
+          </AnimatePresence>
         </div>
       </Card>
     </div>

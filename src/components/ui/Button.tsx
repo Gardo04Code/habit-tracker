@@ -1,20 +1,22 @@
-import type { ButtonHTMLAttributes, ReactNode } from "react";
+import type { ReactNode } from "react";
+import { motion, type HTMLMotionProps } from "framer-motion";
 import clsx from "clsx";
 
 export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
 export type ButtonSize = "sm" | "md" | "lg";
 
-interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+interface ButtonProps extends Omit<HTMLMotionProps<"button">, "children"> {
   variant?: ButtonVariant;
   size?: ButtonSize;
   isLoading?: boolean;
   leadingIcon?: ReactNode;
   trailingIcon?: ReactNode;
+  children?: ReactNode;
 }
 
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
-  primary: "bg-primary text-white hover:bg-primary-hover disabled:bg-primary/50",
-  secondary: "bg-surface text-text-primary border border-border hover:bg-surface-muted",
+  primary: "bg-primary text-white hover:bg-primary-hover shadow-glow disabled:shadow-none disabled:bg-primary/50",
+  secondary: "bg-surface text-text-primary border border-border hover:border-border-strong hover:bg-surface-muted",
   ghost: "bg-transparent text-text-secondary hover:bg-surface-muted hover:text-text-primary",
   danger: "bg-danger text-white hover:bg-danger/90 disabled:bg-danger/50",
 };
@@ -36,8 +38,10 @@ export function Button({
   children,
   ...rest
 }: ButtonProps) {
+  const isDisabled = disabled || isLoading;
+
   return (
-    <button
+    <motion.button
       type="button"
       className={clsx(
         "inline-flex items-center justify-center rounded-lg font-medium transition-colors",
@@ -47,7 +51,10 @@ export function Button({
         SIZE_CLASSES[size],
         className,
       )}
-      disabled={disabled || isLoading}
+      whileHover={isDisabled ? undefined : { y: -1 }}
+      whileTap={isDisabled ? undefined : { scale: 0.97 }}
+      transition={{ duration: 0.15, ease: "easeOut" }}
+      disabled={isDisabled}
       {...rest}
     >
       {isLoading ? (
@@ -60,6 +67,6 @@ export function Button({
       )}
       {children}
       {!isLoading && trailingIcon}
-    </button>
+    </motion.button>
   );
 }

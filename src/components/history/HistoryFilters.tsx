@@ -1,4 +1,4 @@
-import { CalendarRange, Table2 } from "lucide-react";
+import { CalendarRange, Filter, Table2 } from "lucide-react";
 import clsx from "clsx";
 import type { HabitStatus } from "../../types/habit";
 import type { HistoryView } from "../../hooks/useHistoryLogs";
@@ -6,6 +6,7 @@ import type { StatusFilterValue } from "../../hooks/useDailyChecklist";
 import { browsableHabits } from "../../hooks/useHistoryLogs";
 import { mockCategories } from "../../data/mockCategories";
 import { getStatusLabel } from "../../utils/habitStatus";
+import { Card } from "../ui/Card";
 import { Input } from "../ui/Input";
 import { Select } from "../ui/Select";
 
@@ -41,8 +42,40 @@ export function HistoryFilters({
   onViewChange,
 }: HistoryFiltersProps) {
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-border bg-surface p-4">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <Card className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="flex items-center gap-2 text-sm font-semibold text-text-primary">
+          <Filter size={15} className="text-primary" aria-hidden="true" />
+          Filtros
+        </h2>
+
+        <div className="flex gap-1 self-start rounded-lg bg-surface-muted p-1" role="group" aria-label="Cambiar vista">
+          <button
+            type="button"
+            onClick={() => onViewChange("table")}
+            className={clsx(
+              "shadow-elevation-1 flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+              view === "table" ? "bg-surface text-text-primary" : "text-text-secondary shadow-none",
+            )}
+          >
+            <Table2 size={16} aria-hidden="true" />
+            Tabla
+          </button>
+          <button
+            type="button"
+            onClick={() => onViewChange("calendar")}
+            className={clsx(
+              "shadow-elevation-1 flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+              view === "calendar" ? "bg-surface text-text-primary" : "text-text-secondary shadow-none",
+            )}
+          >
+            <CalendarRange size={16} aria-hidden="true" />
+            Calendario
+          </button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <Input label="Desde" type="date" value={dateFrom} onChange={(event) => onDateFromChange(event.target.value)} />
         <Input label="Hasta" type="date" value={dateTo} onChange={(event) => onDateToChange(event.target.value)} />
         <Select
@@ -57,9 +90,6 @@ export function HistoryFilters({
           onChange={(event) => onCategoryChange(event.target.value)}
           options={[{ value: "all", label: "Todas las categorías" }, ...mockCategories.map((category) => ({ value: category.id, label: category.name }))]}
         />
-      </div>
-
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <Select
           label="Estado"
           value={status}
@@ -68,34 +98,8 @@ export function HistoryFilters({
             { value: "all", label: "Todos los estados" },
             ...STATUS_OPTIONS.map((option) => ({ value: option, label: getStatusLabel(option) })),
           ]}
-          className="sm:w-56"
         />
-
-        <div className="flex gap-1 self-start rounded-lg bg-surface-muted p-1" role="group" aria-label="Cambiar vista">
-          <button
-            type="button"
-            onClick={() => onViewChange("table")}
-            className={clsx(
-              "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-              view === "table" ? "bg-surface text-text-primary shadow-sm" : "text-text-secondary",
-            )}
-          >
-            <Table2 size={16} aria-hidden="true" />
-            Tabla
-          </button>
-          <button
-            type="button"
-            onClick={() => onViewChange("calendar")}
-            className={clsx(
-              "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-              view === "calendar" ? "bg-surface text-text-primary shadow-sm" : "text-text-secondary",
-            )}
-          >
-            <CalendarRange size={16} aria-hidden="true" />
-            Calendario
-          </button>
-        </div>
       </div>
-    </div>
+    </Card>
   );
 }

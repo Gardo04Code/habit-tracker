@@ -1,5 +1,6 @@
 import { NavLink } from "react-router-dom";
 import { Flame } from "lucide-react";
+import { motion } from "framer-motion";
 import clsx from "clsx";
 import { primaryNavigation } from "../../routes/navigation";
 import { mockUser } from "../../data/mockUser";
@@ -7,11 +8,13 @@ import { mockUser } from "../../data/mockUser";
 export function Sidebar() {
   return (
     <aside className="sticky top-0 hidden h-svh w-20 shrink-0 flex-col border-r border-border bg-surface px-2 py-6 md:flex lg:w-64 lg:px-4">
-      <div className="flex items-center justify-center gap-2 px-2 lg:justify-start">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary text-white">
+      <div className="flex items-center justify-center gap-2.5 px-2 lg:justify-start">
+        <span className="shadow-glow flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary text-white">
           <Flame size={18} aria-hidden="true" />
         </span>
-        <span className="hidden text-base font-semibold text-text-primary lg:inline">Habit Tracker</span>
+        <span className="hidden text-base font-semibold tracking-tight text-text-primary lg:inline">
+          Habit Tracker
+        </span>
       </div>
 
       <nav className="mt-8 flex flex-1 flex-col gap-1" aria-label="Navegación principal">
@@ -25,16 +28,27 @@ export function Sidebar() {
               title={item.label}
               className={({ isActive }) =>
                 clsx(
-                  "flex items-center justify-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors lg:justify-start",
+                  "relative flex items-center justify-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors lg:justify-start",
                   "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
                   isActive
-                    ? "bg-primary-muted text-primary"
+                    ? "text-primary"
                     : "text-text-secondary hover:bg-surface-muted hover:text-text-primary",
                 )
               }
             >
-              <Icon size={18} aria-hidden="true" className="shrink-0" />
-              <span className="hidden lg:inline">{item.label}</span>
+              {({ isActive }) => (
+                <>
+                  {isActive && (
+                    <motion.span
+                      layoutId="sidebar-active"
+                      className="absolute inset-0 rounded-lg bg-primary-muted"
+                      transition={{ type: "spring", stiffness: 500, damping: 35 }}
+                    />
+                  )}
+                  <Icon size={18} aria-hidden="true" className="relative z-10 shrink-0" />
+                  <span className="relative z-10 hidden lg:inline">{item.label}</span>
+                </>
+              )}
             </NavLink>
           );
         })}
@@ -43,7 +57,7 @@ export function Sidebar() {
       <NavLink
         to="/settings"
         title={mockUser.name}
-        className="flex items-center justify-center gap-3 rounded-lg border border-border px-3 py-2.5 text-sm hover:bg-surface-muted lg:justify-start"
+        className="flex items-center justify-center gap-3 rounded-lg border border-border px-3 py-2.5 text-sm transition-colors hover:border-border-strong hover:bg-surface-muted lg:justify-start"
       >
         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-muted text-sm font-semibold text-primary">
           {mockUser.name.charAt(0)}

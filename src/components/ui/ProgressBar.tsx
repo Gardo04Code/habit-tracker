@@ -1,3 +1,4 @@
+import { motion } from "framer-motion";
 import clsx from "clsx";
 
 export type ProgressVariant = "primary" | "success" | "warning" | "danger" | "purple";
@@ -15,7 +16,7 @@ const VARIANT_CLASSES: Record<ProgressVariant, string> = {
   success: "bg-success",
   warning: "bg-warning",
   danger: "bg-danger",
-  purple: "bg-purple",
+  purple: "bg-primary",
 };
 
 export function ProgressBar({
@@ -34,7 +35,7 @@ export function ProgressBar({
         <div className="mb-1.5 flex items-center justify-between text-xs">
           {label && <span className="text-text-secondary">{label}</span>}
           {showValue && (
-            <span className={clsx("font-medium", isExceeded ? "text-purple" : "text-text-primary")}>
+            <span className={clsx("font-medium", isExceeded ? "text-primary" : "text-text-primary")}>
               {percentage}%
             </span>
           )}
@@ -47,9 +48,14 @@ export function ProgressBar({
         aria-valuemin={0}
         aria-valuemax={100}
       >
-        <div
-          className={clsx("h-full rounded-full transition-all", isExceeded ? "bg-purple" : VARIANT_CLASSES[variant])}
-          style={{ width: `${clamped}%` }}
+        <motion.div
+          className={clsx(
+            "h-full rounded-full",
+            isExceeded ? "bg-primary shadow-glow" : VARIANT_CLASSES[variant],
+          )}
+          initial={false}
+          animate={{ width: `${clamped}%` }}
+          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
         />
       </div>
     </div>

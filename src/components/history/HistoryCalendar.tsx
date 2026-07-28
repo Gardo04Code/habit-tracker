@@ -12,6 +12,7 @@ import {
   startOfMonth,
 } from "../../utils/formatDate";
 import { TODAY } from "../../data/referenceDate";
+import { Card } from "../ui/Card";
 import { IconButton } from "../ui/IconButton";
 import { StatusBadge } from "../ui/StatusBadge";
 import { EmptyState } from "../ui/EmptyState";
@@ -49,7 +50,7 @@ export function HistoryCalendar({ habitId, categoryId }: HistoryCalendarProps) {
 
   return (
     <div className="flex flex-col gap-4 lg:flex-row">
-      <div className="flex-1 rounded-xl border border-border bg-surface p-4">
+      <Card className="flex-1">
         <div className="flex items-center justify-between">
           <IconButton
             icon={<ChevronLeft size={18} />}
@@ -97,7 +98,7 @@ export function HistoryCalendar({ habitId, categoryId }: HistoryCalendarProps) {
               >
                 {date.slice(-2)}
                 {hasGoalExceeded && (
-                  <Trophy size={10} className="absolute right-1 top-1 text-purple" aria-hidden="true" />
+                  <Trophy size={10} className="absolute right-1 top-1 text-primary" aria-hidden="true" />
                 )}
               </button>
             );
@@ -111,12 +112,12 @@ export function HistoryCalendar({ habitId, categoryId }: HistoryCalendarProps) {
           ))}
           <span>Más</span>
           <span className="ml-3 flex items-center gap-1">
-            <Trophy size={12} className="text-purple" aria-hidden="true" /> Meta superada
+            <Trophy size={12} className="text-primary" aria-hidden="true" /> Meta superada
           </span>
         </div>
-      </div>
+      </Card>
 
-      <div className="flex-1 rounded-xl border border-border bg-surface p-4 lg:max-w-sm">
+      <Card className="flex-1 lg:max-w-sm">
         <p className="text-sm font-semibold capitalize text-text-primary">{formatFullDate(selectedDay)}</p>
         {dayEntries.length === 0 ? (
           <div className="mt-3">
@@ -144,7 +145,7 @@ export function HistoryCalendar({ habitId, categoryId }: HistoryCalendarProps) {
             ))}
           </ul>
         )}
-      </div>
+      </Card>
     </div>
   );
 }

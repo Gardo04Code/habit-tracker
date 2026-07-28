@@ -78,13 +78,32 @@ export function useStatistics() {
     }));
   }, [periodLogs]);
 
+  const CONSISTENCY_WEEKS = 8;
   const consistency = useMemo(() => {
-    return Array.from({ length: 35 }, (_, index) => {
-      const date = addDays(TODAY, index - 34);
+    const totalDays = CONSISTENCY_WEEKS * 7;
+    // Alinea la ventana a semanas completas de lunes a domingo, terminando
+    // en la semana que contiene a TODAY.
+    const todayWeekday = (new Date(`${TODAY}T00:00:00`).getDay() + 6) % 7; // 0 = lunes
+    const daysUntilWeekEnd = 6 - todayWeekday;
+    const windowEnd = addDays(TODAY, daysUntilWeekEnd);
+
+    return Array.from({ length: totalDays }, (_, index) => {
+      const date = addDays(windowEnd, index - (totalDays - 1));
       const logsForDay = filterLogs(habitId, categoryId, date, date);
-      return { date, completionRate: dayRate(logsForDay) };
+      return { date, completionRate: dayRate(logsForDay), hasData: logsForDay.length > 0 && date <= TODAY };
     });
   }, [habitId, categoryId]);
+
+  const trend = useMemo(() => {
+    const points = 8;
+    if (dailyRates.length <= points) return dailyRates.map((point) => point.completionRate);
+    return Array.from({ length: points }, (_, index) => {
+      const bucketStart = Math.floor((index * dailyRates.length) / points);
+      const bucketEnd = Math.max(bucketStart + 1, Math.floor(((index + 1) * dailyRates.length) / points));
+      const bucket = dailyRates.slice(bucketStart, bucketEnd);
+      return Math.round(bucket.reduce((sum, point) => sum + point.completionRate, 0) / bucket.length);
+    });
+  }, [dailyRates]);
 
   const habitComparison = useMemo(() => {
     if (habitId !== "all") return [];
@@ -92,7 +111,13 @@ export function useStatistics() {
       .filter((habit) => categoryId === "all" || habit.categoryIds.includes(categoryId))
       .map((habit) => {
         const logs = periodLogs.filter((log) => log.habitId === habit.id);
-        return { habitId: habit.id, habitName: habit.name, color: habit.color, completionRate: dayRate(logs) };
+        return {
+          habitId: habit.id,
+          habitName: habit.name,
+          color: habit.color,
+          icon: habit.icon,
+          completionRate: dayRate(logs),
+        };
       })
       .sort((a, b) => b.completionRate - a.completionRate);
   }, [habitId, categoryId, periodLogs]);
@@ -151,6 +176,7 @@ export function useStatistics() {
     setHabitId,
     setCategoryId,
     dailyRates,
+    trend,
     statusBreakdown,
     consistency,
     habitComparison,

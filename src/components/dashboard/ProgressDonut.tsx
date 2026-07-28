@@ -1,54 +1,47 @@
-import { Cell, Pie, PieChart, Tooltip } from "recharts";
+import { lazy, Suspense, useState } from "react";
+import clsx from "clsx";
 import type { StatusBreakdownPoint } from "../../types/dashboard";
 import type { HabitStatus } from "../../types/habit";
 import { getStatusColorVar, getStatusLabel } from "../../utils/habitStatus";
-import { ChartContainer } from "../charts/ChartContainer";
+import { Skeleton } from "../ui/Skeleton";
+
+const StatusDonut3D = lazy(() =>
+  import("./StatusDonut3D").then((module) => ({ default: module.StatusDonut3D })),
+);
 
 interface ProgressDonutProps {
   data: StatusBreakdownPoint[];
 }
 
 export function ProgressDonut({ data }: ProgressDonutProps) {
+  const [activeStatus, setActiveStatus] = useState<HabitStatus | null>(null);
   const total = data.reduce((sum, point) => sum + point.count, 0);
 
   return (
-    <div className="flex flex-col items-center gap-4 sm:flex-row">
-      <div className="w-[180px] shrink-0">
-        <ChartContainer height={180}>
-          <PieChart>
-            <Pie
-              data={data}
-              dataKey="count"
-              nameKey="status"
-              innerRadius={54}
-              outerRadius={78}
-              paddingAngle={2}
-              stroke="var(--color-surface)"
-              strokeWidth={2}
-            >
-              {data.map((point) => (
-                <Cell key={point.status} fill={getStatusColorVar(point.status)} />
-              ))}
-            </Pie>
-            <Tooltip
-              contentStyle={{ borderRadius: 12, border: "1px solid var(--color-border)", fontSize: 13 }}
-              formatter={(value, name) => [`${value} registros`, getStatusLabel(name as HabitStatus)]}
-            />
-          </PieChart>
-        </ChartContainer>
-      </div>
-      <ul className="flex flex-1 flex-col gap-2 text-sm">
+    <div className="flex flex-col items-center gap-5">
+      <Suspense fallback={<Skeleton className="h-[280px] w-[280px] shrink-0 rounded-full" />}>
+        <StatusDonut3D data={data} activeStatus={activeStatus} onHoverStatus={setActiveStatus} />
+      </Suspense>
+      <ul className="flex w-full flex-col gap-0.5 text-sm">
         {data.map((point) => (
-          <li key={point.status} className="flex items-center justify-between gap-3">
-            <span className="flex items-center gap-2 text-text-secondary">
+          <li
+            key={point.status}
+            className={clsx(
+              "flex items-center justify-between gap-3 rounded-lg px-2 py-1.5 transition-colors",
+              activeStatus === point.status && "bg-surface-muted",
+            )}
+            onMouseEnter={() => setActiveStatus(point.status)}
+            onMouseLeave={() => setActiveStatus(null)}
+          >
+            <span className="flex min-w-0 items-center gap-2 text-text-secondary">
               <span
-                className="h-2.5 w-2.5 rounded-full"
+                className="h-2.5 w-2.5 shrink-0 rounded-full"
                 style={{ backgroundColor: getStatusColorVar(point.status) }}
                 aria-hidden="true"
               />
-              {getStatusLabel(point.status)}
+              <span className="truncate">{getStatusLabel(point.status)}</span>
             </span>
-            <span className="font-medium text-text-primary">
+            <span className="shrink-0 whitespace-nowrap font-medium text-text-primary">
               {point.count} · {total > 0 ? Math.round((point.count / total) * 100) : 0}%
             </span>
           </li>

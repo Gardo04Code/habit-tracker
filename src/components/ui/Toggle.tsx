@@ -1,5 +1,7 @@
-import { useId } from "react";
+import { useId, type ReactNode } from "react";
 import clsx from "clsx";
+
+export type ToggleTone = "primary" | "success" | "warning" | "danger" | "info";
 
 interface ToggleProps {
   label: string;
@@ -7,18 +9,35 @@ interface ToggleProps {
   onChange: (checked: boolean) => void;
   hint?: string;
   disabled?: boolean;
+  icon?: ReactNode;
+  tone?: ToggleTone;
 }
 
-export function Toggle({ label, checked, onChange, hint, disabled }: ToggleProps) {
+const TONE_CLASSES: Record<ToggleTone, string> = {
+  primary: "bg-primary-muted text-primary",
+  success: "bg-success-muted text-success",
+  warning: "bg-warning-muted text-warning",
+  danger: "bg-danger-muted text-danger",
+  info: "bg-info-muted text-info",
+};
+
+export function Toggle({ label, checked, onChange, hint, disabled, icon, tone = "primary" }: ToggleProps) {
   const id = useId();
 
   return (
-    <div className="flex items-center justify-between gap-4 py-1">
-      <div>
-        <label htmlFor={id} className="text-sm font-medium text-text-primary">
-          {label}
-        </label>
-        {hint && <p className="text-xs text-text-secondary">{hint}</p>}
+    <div className="flex items-center justify-between gap-4 py-3">
+      <div className="flex items-center gap-3">
+        {icon && (
+          <span className={clsx("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg", TONE_CLASSES[tone])} aria-hidden="true">
+            {icon}
+          </span>
+        )}
+        <div>
+          <label htmlFor={id} className="text-sm font-medium text-text-primary">
+            {label}
+          </label>
+          {hint && <p className="text-xs text-text-secondary">{hint}</p>}
+        </div>
       </div>
       <button
         id={id}

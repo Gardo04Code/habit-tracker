@@ -37,13 +37,17 @@ export function getHabitIcon(iconName: string): LucideIcon {
   return ICON_MAP[iconName] ?? Sparkles;
 }
 
+/**
+ * Todas derivadas de la familia Oxford Blue (mismo hue, distinta claridad):
+ * distinguen hábitos por tono sin romper la regla de "un solo acento".
+ */
 export const HABIT_COLOR_OPTIONS = [
-  "#4f6df5",
-  "#7c5ce7",
-  "#2eaf76",
-  "#e5a437",
-  "#f08a3c",
-  "#dc6673",
-  "#0ea5b8",
+  "#93a5d6",
+  "#7ea3f7",
+  "#6b93f4",
+  "#4c7cf0",
+  "#2f5bc4",
+  "#345690",
+  "#1e3a8a",
   "#64748b",
 ];
