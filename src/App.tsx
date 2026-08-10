@@ -1,5 +1,7 @@
 import { Route, Routes } from "react-router-dom";
 import { ThemeProvider } from "./hooks/useTheme";
+import { AuthProvider } from "./contexts/AuthContext";
+import { ProtectedRoute } from "./routes/ProtectedRoute";
 import { AppLayout } from "./layouts/AppLayout";
 import { DashboardPage } from "./pages/DashboardPage";
 import { DailyChecklistPage } from "./pages/DailyChecklistPage";
@@ -8,23 +10,29 @@ import { HistoryPage } from "./pages/HistoryPage";
 import { StatisticsPage } from "./pages/StatisticsPage";
 import { GoalsPage } from "./pages/GoalsPage";
 import { SettingsPage } from "./pages/SettingsPage";
+import { LoginPage } from "./pages/LoginPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 
 function App() {
   return (
     <ThemeProvider>
-      <Routes>
-        <Route element={<AppLayout />}>
-          <Route path="/" element={<DashboardPage />} />
-          <Route path="/checklist" element={<DailyChecklistPage />} />
-          <Route path="/habits" element={<HabitsPage />} />
-          <Route path="/history" element={<HistoryPage />} />
-          <Route path="/statistics" element={<StatisticsPage />} />
-          <Route path="/goals" element={<GoalsPage />} />
-          <Route path="/settings" element={<SettingsPage />} />
-          <Route path="*" element={<NotFoundPage />} />
-        </Route>
-      </Routes>
+      <AuthProvider>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route element={<ProtectedRoute />}>
+            <Route element={<AppLayout />}>
+              <Route path="/" element={<DashboardPage />} />
+              <Route path="/checklist" element={<DailyChecklistPage />} />
+              <Route path="/habits" element={<HabitsPage />} />
+              <Route path="/history" element={<HistoryPage />} />
+              <Route path="/statistics" element={<StatisticsPage />} />
+              <Route path="/goals" element={<GoalsPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
+              <Route path="*" element={<NotFoundPage />} />
+            </Route>
+          </Route>
+        </Routes>
+      </AuthProvider>
     </ThemeProvider>
   );
 }
