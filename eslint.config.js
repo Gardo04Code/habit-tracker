@@ -6,7 +6,10 @@ import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  // 'supabase' excluye contenido generado por la CLI de Supabase
+  // (supabase/.temp, funciones Edge en Deno) — nunca fue código de este
+  // proyecto React y no debe lintarse con esta configuración de navegador.
+  globalIgnores(['dist', 'supabase']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [
