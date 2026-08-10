@@ -15,7 +15,7 @@ export function buildHistoryCsv(entries: HistoryEntry[]): string {
     entry.habit.name,
     getStatusLabel(entry.log.status),
     entry.log.value !== undefined ? String(entry.log.value) : "",
-    entry.habit.targetValue !== undefined ? String(entry.habit.targetValue) : "",
+    entry.targetValue !== undefined ? String(entry.targetValue) : "",
     entry.percentage !== undefined ? `${entry.percentage}%` : "",
     entry.goalExceeded ? "Sí" : "No",
     entry.log.note ?? "",
