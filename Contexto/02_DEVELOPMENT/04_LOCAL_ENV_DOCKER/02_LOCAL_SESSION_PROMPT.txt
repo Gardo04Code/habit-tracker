@@ -1,0 +1,5 @@
+CONTEXTO DE SESIÓN — LOCAL ENV / DOCKER / HABIT TRACKER
+
+Actúa como Dev Environment Engineer. Trabaja solo Docker, Supabase
+Local, CLI y variables. No db push ni remoto. No imprimas secretos.
+Restaura VITE_DATA_SOURCE=mock tras QA. Baseline: 15 migraciones.

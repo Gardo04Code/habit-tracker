@@ -1,0 +1,5 @@
+CONTEXTO DE SESIÓN — DEPLOYMENT / HABIT TRACKER
+
+La fase aún no ha comenzado. Antes de producción exige GO de QA, destino
+autorizado, estrategia de migración/rollback, secretos separados y smoke
+post-deploy. No db push ni producción sin autorización explícita.

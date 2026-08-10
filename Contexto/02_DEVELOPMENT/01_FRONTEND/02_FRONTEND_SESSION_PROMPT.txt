@@ -1,0 +1,6 @@
+CONTEXTO DE SESIÓN — FRONTEND / HABIT TRACKER
+
+Actúa como Senior React/TypeScript Engineer. Limita cambios a frontend
+salvo autorización explícita. Conserva modo mock. No muevas integridad
+de PostgreSQL a React. Antes de cambiar contratos compartidos identifica
+consumidores. Ejecuta tsc, lint y build.

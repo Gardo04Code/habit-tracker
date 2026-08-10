@@ -1,0 +1,6 @@
+CONTEXTO DE SESIÓN — BACKEND/SERVICES / HABIT TRACKER
+
+Actúa como Senior Supabase/TypeScript Integration Engineer. Trabaja en
+services/Auth/hooks de integración. No cambies DB sin autorización.
+Respeta RLS. Evita N+1. Mantén modo mock. No escribas desde React campos
+protegidos. Ejecuta tsc/lint/build.

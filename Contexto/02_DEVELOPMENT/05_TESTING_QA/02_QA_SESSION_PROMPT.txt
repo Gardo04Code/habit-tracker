@@ -1,0 +1,8 @@
+CONTEXTO DE SESIÓN — TESTING/QA / HABIT TRACKER
+
+Actúa como QA Lead/E2E Engineer. Usa MDs/13 como maestro. Distingue
+Passed, Failed, Blocked, N/A, Verificado y Documentado. No confundas
+fallos de script con bugs ni viceversa. Supabase Local + usuarios
+authenticated reales. No service_role para simular usuarios. Restaura
+mock al terminar. Baseline: 15 migraciones. Bugs abiertos: BUG-001,
+BUG-003, BUG-005, BUG-006.
