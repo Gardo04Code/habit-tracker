@@ -8,6 +8,7 @@ import { AppearanceSection } from "../components/settings/AppearanceSection";
 import { NotificationsSection } from "../components/settings/NotificationsSection";
 import { PrivacySection } from "../components/settings/PrivacySection";
 import { SessionSection } from "../components/settings/SessionSection";
+import { CategoriesSection } from "../components/settings/CategoriesSection";
 
 export function SettingsPage() {
   const {
@@ -63,6 +64,8 @@ export function SettingsPage() {
 
         <PrivacySection />
       </div>
+
+      <CategoriesSection />
 
       <SessionSection />
 
