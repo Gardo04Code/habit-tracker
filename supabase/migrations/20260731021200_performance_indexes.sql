@@ -1,0 +1,463 @@
+-- ============================================================================
+-- Migración: performance_indexes
+-- Origen: MDs/09_DATABASE_AUDIT.md (recomendaciones de rendimiento,
+-- índices de apoyo) + MDs/10_DATABASE_DECISIONS.md (ninguna decisión
+-- pendiente específica — esta migración es de optimización, no de
+-- reglas de negocio).
+--
+-- Alcance: única y exclusivamente índices de rendimiento/soporte
+-- operacional. No modifica reglas de negocio, RLS, políticas, funciones,
+-- triggers, constraints, enums, columnas ni datos. Después de un
+-- inventario exhaustivo (Sección 0) y de evaluar las 16 consultas del
+-- encargo más las políticas RLS de rls_hardening.sql y las consultas
+-- internas de los 10 triggers/funciones existentes, se concluye que solo
+-- UN índice nuevo aporta cobertura que hoy no existe:
+-- habits_user_id_lifecycle_status_idx. El resto del trabajo de esta
+-- migración es la evaluación documentada de por qué los demás candidatos
+-- NO se crean (ya cubiertos, o sin evidencia suficiente).
+--
+-- No modifica init_schema, harden_functions, database_integrity,
+-- entity_lifecycle, habit_schedules,
+-- 20260731002637_habit_log_goal_snapshots.sql,
+-- 20260731004632_goal_progress_source.sql,
+-- 20260731014259_habit_log_edit_window.sql ni
+-- 20260731015901_rls_hardening.sql (nombres reales de archivo en el
+-- repositorio, con sus correcciones ya aplicadas).
+-- ============================================================================
+
+
+-- ============================================================================
+-- SECCIÓN 0 — INVENTARIO COMPLETO DE ÍNDICES EXISTENTES
+-- (confirmado por inspección directa de las 9 migraciones anteriores
+-- antes de escribir este archivo, no asumido)
+-- ============================================================================
+--
+-- profiles:
+--   id uuid PRIMARY KEY (init_schema.sql) -> índice btree implícito de PK.
+--   Sin índices adicionales.
+--
+-- categories:
+--   id uuid PRIMARY KEY (init_schema.sql).
+--   categories_user_id_idx ON categories(user_id) — init_schema.sql.
+--     Soporta: filtros simples por dueño.
+--   categories_active_name_normalized_idx — UNIQUE, ON categories
+--     (user_id, lower(btrim(name))) WHERE lifecycle_status = 'active'.
+--     Creado sin WHERE en database_integrity.sql (H-06); DROP + recreado
+--     CON WHERE en entity_lifecycle.sql (D-01) — la versión vigente hoy es
+--     la de entity_lifecycle.sql. Soporta: unicidad de nombre normalizado
+--     entre categorías activas del usuario. NO se toca ni se reemplaza en
+--     esta migración (el encargo prohíbe sustituirlo salvo error
+--     demostrado; no hay ninguno).
+--   categories_user_id_lifecycle_status_idx ON categories
+--     (user_id, lifecycle_status) — entity_lifecycle.sql (D-01). Soporta:
+--     consultas 1 y 2 del encargo (categorías activas / papelera) —
+--     cobertura COMPLETA ya existente, ver Sección 2.
+--
+-- habits:
+--   id uuid PRIMARY KEY (init_schema.sql).
+--   habits_user_id_idx ON habits(user_id) — init_schema.sql.
+--   habits_active_name_normalized_idx — UNIQUE, ON habits
+--     (user_id, lower(btrim(name))) WHERE lifecycle_status <> 'deleted' —
+--     database_integrity.sql (H-06). NO se toca.
+--   NINGÚN índice compuesto (user_id, lifecycle_status) existe hoy para
+--   habits — a diferencia de categories y goals, habits.lifecycle_status
+--   existe desde init_schema (no fue tocado por D-01/D-02, que solo
+--   agregaron ciclo de vida a categories/goals respectivamente) y nunca
+--   recibió el mismo tratamiento de índice compuesto. Ver Sección 1 —
+--   ÚNICO índice nuevo de esta migración.
+--   Nota: las columnas de frecuencia (frequency_type, days_of_week,
+--   frequency_target, interval_days) fueron retiradas en
+--   habit_schedules.sql (D-03) — no se reintroduce ningún índice sobre
+--   ellas, no existen en la tabla.
+--
+-- habit_categories:
+--   PRIMARY KEY compuesta (habit_id, category_id) — init_schema.sql.
+--     habit_id es la columna líder -> ya cubre "WHERE habit_id = ?"
+--     (consulta 5) sin necesitar un índice adicional.
+--   habit_categories_category_id_idx ON habit_categories(category_id) —
+--     database_integrity.sql (H-20). Cubre "WHERE category_id = ?"
+--     (consulta 6) directamente.
+--
+-- habit_schedules:
+--   id uuid PRIMARY KEY (habit_schedules.sql).
+--   habit_schedules_no_overlap_excl — EXCLUDE USING gist
+--     (habit_id WITH =, daterange(valid_from, valid_to, '[]') WITH &&) —
+--     genera su propio índice GiST automáticamente (no btree). No se
+--     duplica ni se toca.
+--   habit_schedules_one_current_per_habit_idx — UNIQUE parcial, ON
+--     habit_schedules(habit_id) WHERE valid_to IS NULL — habit_schedules.sql.
+--     Cubre EXACTAMENTE la consulta 7 ("WHERE habit_id = ? AND valid_to IS
+--     NULL"). NO se toca (el encargo prohíbe reemplazarlo salvo error
+--     demostrado; no hay ninguno).
+--   habit_schedules_habit_id_valid_from_idx ON habit_schedules
+--     (habit_id, valid_from) — habit_schedules.sql. Cubre la consulta 8
+--     ("WHERE habit_id = ? ORDER BY valid_from DESC") — un B-tree se
+--     recorre en ambas direcciones, no se necesita una versión DESC
+--     aparte.
+--
+-- habit_logs:
+--   id uuid PRIMARY KEY (init_schema.sql).
+--   UNIQUE (habit_id, date) — init_schema.sql. Genera un índice btree
+--     implícito sobre (habit_id, date) — cubre, por prefijo izquierdo,
+--     tanto "WHERE habit_id = ?" solo como "WHERE habit_id = ? AND date
+--     BETWEEN ? AND ? [ORDER BY date]" (consulta 9) de forma completa y
+--     ya ordenada por date dentro de cada habit_id.
+--   habit_logs_habit_id_idx ON habit_logs(habit_id) — init_schema.sql.
+--     Nota (no se actúa en esta migración, solo se reporta): este índice
+--     de una sola columna quedó funcionalmente cubierto por el prefijo
+--     izquierdo del índice único (habit_id, date) de arriba desde el
+--     momento en que ese UNIQUE se creó — es un candidato razonable a
+--     limpieza futura, pero el encargo de esta migración prioriza
+--     "agregar, no reemplazar", así que NO se elimina aquí.
+--   habit_logs_date_idx ON habit_logs(date) — init_schema.sql. Columna de
+--     baja cardinalidad temporal aislada (todas las fechas de todos los
+--     usuarios mezcladas) — ver Sección 2 para por qué no se necesita
+--     ampliarlo ni reemplazarlo para la consulta 10.
+--
+-- goals:
+--   id uuid PRIMARY KEY (init_schema.sql).
+--   goals_user_id_idx ON goals(user_id) — init_schema.sql.
+--   goals_habit_id_idx ON goals(habit_id) — init_schema.sql.
+--   goals_user_id_lifecycle_status_status_idx ON goals
+--     (user_id, goal_lifecycle_status, status) — entity_lifecycle.sql
+--     (D-02). Cubre EXACTAMENTE la consulta 13.
+--   goals_habit_id_progress_source_idx ON goals
+--     (habit_id, progress_source) — goal_progress_source.sql (D-05).
+--     Cubre EXACTAMENTE la consulta 12 y la consulta interna del trigger
+--     sync_goal_progress_from_habit_log (consulta 15, ver Sección 3).
+-- ----------------------------------------------------------------------------
+
+
+-- ============================================================================
+-- SECCIÓN 1 — ÚNICO ÍNDICE NUEVO DE ESTA MIGRACIÓN
+-- ============================================================================
+--
+-- habits_user_id_lifecycle_status_idx ON habits(user_id, lifecycle_status)
+--
+-- Consulta soportada: consultas 3 y 4 del encargo —
+--   "WHERE user_id = auth.uid() AND lifecycle_status = 'active'"
+--   "WHERE user_id = auth.uid() AND lifecycle_status IN (...)"
+-- y, por el mismo motivo, la consulta 16 (papelera/histórico de hábitos:
+-- mismo patrón con lifecycle_status = 'deleted'/'archived'/'paused').
+--
+-- Por qué NO está cubierta por otro índice: habits_user_id_idx (existente,
+-- una sola columna) permite localizar rápido las filas de un usuario, pero
+-- el filtro adicional por lifecycle_status se resolvería con un filtro
+-- posterior fila por fila (Index Scan + Filter), no con una segunda
+-- condición de búsqueda dentro del propio índice. habits_active_name_normalized_idx
+-- es UNIQUE sobre (user_id, lower(btrim(name))) con una condición WHERE
+-- distinta (lifecycle_status <> 'deleted', fija) y una expresión sobre
+-- name que no sirve para este filtro. Ningún índice existente en habits
+-- tiene lifecycle_status como columna indexada.
+--
+-- Diseño: índice COMPUESTO completo (no parcial), replicando
+-- deliberadamente el mismo patrón ya usado en entity_lifecycle.sql para
+-- categories_user_id_lifecycle_status_idx y para
+-- goals_user_id_lifecycle_status_status_idx — no un índice parcial
+-- WHERE lifecycle_status = 'active'. Motivo: el propio encargo pide cubrir
+-- TANTO "activos" (consulta 3) COMO "por estado, plural, IN (...)"
+-- (consulta 4) COMO "papelera/histórico" (consulta 16) — un índice parcial
+-- restringido a un solo valor de lifecycle_status solo serviría a UNA de
+-- esas tres consultas; habría que crear un segundo índice para las demás,
+-- perdiendo exactamente la simplicidad que un índice compuesto único ya
+-- da. habits queda así consistente con el criterio ya aplicado a
+-- categories y goals — es la única de las tres tablas con lifecycle_status
+-- que no lo tenía, no una decisión de diseño distinta.
+--
+-- No se especifica ASC/DESC explícito: no hay ningún requisito de orden
+-- descendente documentado para esta combinación de columnas; el orden por
+-- defecto (ASC) es suficiente y un B-tree se recorre en ambas direcciones
+-- si algún día se necesitara.
+-- ----------------------------------------------------------------------------
+
+create index if not exists habits_user_id_lifecycle_status_idx
+  on public.habits (user_id, lifecycle_status);
+
+
+-- ============================================================================
+-- SECCIÓN 2 — CONSULTAS 1-16 DEL ENCARGO: COBERTURA CONFIRMADA SIN ÍNDICE
+-- NUEVO (detalle consulta por consulta)
+-- ============================================================================
+--
+--  1. Categorías activas del usuario (WHERE user_id/lifecycle_status,
+--     ORDER BY name) -> categories_user_id_lifecycle_status_idx (existente)
+--     cubre por completo el WHERE (ambas columnas son predicados de
+--     igualdad, en el orden del índice). El ORDER BY name posterior no
+--     tiene soporte de índice (el único índice sobre name es
+--     lower(btrim(name)) con una expresión distinta, para unicidad, no
+--     para orden) — se evalúa y se rechaza ampliar el índice para
+--     cubrirlo: el número de categorías por usuario es, por diseño de
+--     producto, pequeño (decenas como mucho, no miles), así que un sort
+--     en memoria sobre un conjunto ya filtrado a un solo usuario es barato
+--     y no justifica un tercer campo en el índice ("evita índices
+--     redundantes que solo ahorren una fracción mínima").
+--
+--  2. Papelera de categorías (lifecycle_status = 'deleted') -> mismo
+--     índice que la consulta 1, mismo razonamiento — un índice compuesto
+--     no parcial sirve cualquier valor de lifecycle_status.
+--
+--  3 y 4. Hábitos activos / por estado IN (...) -> cubiertas por el único
+--     índice nuevo de esta migración (Sección 1).
+--
+--  5. Asociación de categorías por hábito (WHERE habit_id = ?) -> cubierta
+--     por el prefijo izquierdo de la PK compuesta (habit_id, category_id)
+--     de habit_categories. Sin índice nuevo.
+--
+--  6. Hábitos asociados a una categoría (WHERE category_id = ?) ->
+--     cubierta por habit_categories_category_id_idx (existente, H-20).
+--     Candidato evaluado y RECHAZADO: habit_categories(category_id,
+--     habit_id) — el índice existente de una sola columna ya resuelve el
+--     filtro por igualdad sobre category_id; agregar habit_id como
+--     segunda columna solo ayudaría a un index-only scan que devolviera
+--     habit_id sin tocar la tabla, algo no evidenciado como necesario hoy
+--     — sin esa evidencia, sería un índice especulativo.
+--
+--  7. Frecuencia vigente (WHERE habit_id = ? AND valid_to IS NULL) ->
+--     cubierta exactamente por habit_schedules_one_current_per_habit_idx
+--     (existente, UNIQUE parcial). Sin índice nuevo.
+--
+--  8. Historial de frecuencia (WHERE habit_id = ? ORDER BY valid_from
+--     DESC) -> cubierta por habit_schedules_habit_id_valid_from_idx
+--     (existente). Sin índice nuevo, sin variante DESC (B-tree
+--     bidireccional).
+--
+--  9. Logs de un hábito por rango (WHERE habit_id = ? AND date BETWEEN ?
+--     AND ? ORDER BY date) -> cubierta POR COMPLETO por el índice
+--     implícito del UNIQUE(habit_id, date) de habit_logs (init_schema.sql):
+--     prefijo izquierdo habit_id para la igualdad, date como segunda
+--     columna para el rango Y para el orden — sin necesidad de sort
+--     adicional. Candidatos evaluados: habit_logs(date, habit_id) ->
+--     RECHAZADO (ver consulta 10); habit_logs(habit_id, date) por
+--     separado -> RECHAZADO por ser exactamente lo que el UNIQUE ya provee
+--     (duplicaría un índice ya cubriente). El UNIQUE existente "cubre
+--     suficientemente el caso principal", tal como planteaba el propio
+--     encargo como posibilidad.
+--
+-- 10. Checklist diario (logs de todos los hábitos propios para una fecha
+--     concreta) -> NO requiere un índice nuevo. La estrategia de consulta
+--     esperada (y la que el planner de PostgreSQL elegiría de forma
+--     natural dado el tamaño típico de los datos) es: localizar primero
+--     los habit_id propios del usuario vía habits_user_id_idx (conjunto
+--     pequeño, decenas de hábitos como mucho), y luego probar cada uno
+--     contra el índice (habit_id, date) del UNIQUE de habit_logs para la
+--     fecha concreta — ambos pasos ya están indexados. habit_logs_date_idx
+--     (existente, columna date sola, sin habit_id) serviría una estrategia
+--     alternativa de "empezar por date" que mezclaría filas de TODOS los
+--     usuarios para ese día antes de filtrar por propiedad — menos
+--     selectiva que la anterior salvo un volumen de datos muy distinto al
+--     documentado ("poco o ningún dato"). Candidato habit_logs(date,
+--     habit_id) evaluado y RECHAZADO: no hay evidencia de que la
+--     estrategia "por fecha primero" sea la que realmente elija el
+--     planner ni de que sea necesaria; sería un índice especulativo para
+--     un patrón de acceso no confirmado como el dominante.
+--
+-- 11. Historial general del usuario (JOIN habit_logs -> habits WHERE
+--     habits.user_id = ? AND habit_logs.date BETWEEN ? AND ?) -> mismo
+--     razonamiento que la consulta 10: habits_user_id_idx localiza los
+--     habit_id propios, el UNIQUE(habit_id, date) de habit_logs resuelve
+--     el rango de fechas por cada uno. Sin índice nuevo.
+--
+-- 12. Metas vinculadas a un hábito (WHERE habit_id = ? AND progress_source
+--     = 'habit_logs') -> cubierta exactamente por
+--     goals_habit_id_progress_source_idx (existente, goal_progress_source.sql).
+--     Sin índice nuevo.
+--
+-- 13. Metas por dueño, lifecycle y status (WHERE user_id = ? AND
+--     goal_lifecycle_status = ? AND status = ?) -> cubierta exactamente
+--     por goals_user_id_lifecycle_status_status_idx (existente,
+--     entity_lifecycle.sql). Sin índice nuevo.
+--
+-- 14. Metas activas por rango (WHERE habit_id = ? AND progress_source =
+--     'habit_logs' AND start_date <= ? AND (end_date IS NULL OR end_date
+--     >= ?)) -> candidato evaluado goals(habit_id, progress_source,
+--     start_date, end_date) — RECHAZADO. goals_habit_id_progress_source_idx
+--     ya resuelve el prefijo (habit_id, progress_source) por igualdad; el
+--     número de goals vinculadas a UN MISMO habit_id es, por diseño de
+--     producto, muy pequeño (normalmente 0-1, rara vez más de un puñado),
+--     así que filtrar start_date/end_date sobre ese conjunto ya diminuto
+--     no necesita soporte de índice adicional ("evita índices redundantes
+--     que solo ahorren una fracción mínima"). Además, ninguna consulta
+--     interna real (trigger o función) filtra hoy por start_date/end_date
+--     junto con habit_id/progress_source — sync_goal_progress_from_habit_log
+--     recalcula deliberadamente TODAS las metas que coincidan por
+--     habit_id + progress_source sin pre-filtrar por rango (decisión
+--     explícita ya documentada en goal_progress_source.sql, por
+--     corrección antes que optimización) — no hay evidencia real de esta
+--     consulta ejecutándose hoy en el sistema.
+--
+-- 15. Localizar metas afectadas por un habit_log (trigger de recálculo)
+--     -> ver Sección 3 — cubierta exactamente por
+--     goals_habit_id_progress_source_idx.
+--
+-- 16. Papelera/histórico de hábitos y metas -> hábitos: cubierta por el
+--     índice nuevo de la Sección 1 (mismo índice sirve 'active' y
+--     'deleted'/'paused'/'archived'). Metas: cubierta por
+--     goals_user_id_lifecycle_status_status_idx (existente). Sin índice
+--     nuevo adicional.
+-- ----------------------------------------------------------------------------
+
+
+-- ============================================================================
+-- SECCIÓN 3 — COBERTURA DE TRIGGERS Y FUNCIONES (consulta interna, tabla,
+-- predicado, índice que la soporta)
+-- ============================================================================
+--
+-- validate_habit_category_ownership() — database_integrity.sql:
+--   SELECT user_id FROM habits WHERE id = new.habit_id      -> PK habits.id
+--   SELECT user_id FROM categories WHERE id = new.category_id -> PK categories.id
+--   Ambas ya cubiertas. Sin índice nuevo.
+--
+-- validate_goal_habit_ownership() — database_integrity.sql:
+--   SELECT user_id FROM habits WHERE id = new.habit_id -> PK habits.id.
+--   Sin índice nuevo.
+--
+-- change_habit_schedule(...) — habit_schedules.sql:
+--   SELECT user_id FROM habits WHERE id = p_habit_id -> PK habits.id.
+--   SELECT ... FROM habit_schedules WHERE habit_id = p_habit_id AND
+--     valid_to IS NULL FOR UPDATE -> habit_schedules_one_current_per_habit_idx
+--     (exacto). Sin índice nuevo.
+--
+-- set_habit_log_goal_snapshot() — habit_log_goal_snapshots.sql:
+--   SELECT * FROM habits WHERE id = new.habit_id -> PK habits.id.
+--   Sin índice nuevo.
+--
+-- sync_goal_progress_from_habit_log() — goal_progress_source.sql:
+--   SELECT id FROM goals WHERE habit_id = ANY(...) AND progress_source =
+--     'habit_logs' -> goals_habit_id_progress_source_idx (exacto). Este es
+--     el trigger de recálculo mencionado en la consulta 15 del encargo —
+--     confirmado con índice adecuado. Sin índice nuevo.
+--
+-- compute_goal_habit_logs_progress(...) — goal_progress_source.sql:
+--   Tres SELECT sobre habit_logs, todos con el mismo patrón: WHERE
+--   habit_id = ? AND date >= ? AND (date <= ? OR ? IS NULL) AND status IN
+--   ('completed','partial') -> cubierta por el prefijo (habit_id, date)
+--   del UNIQUE(habit_id, date) existente para la parte de igualdad+rango;
+--   el filtro adicional por status se aplica sobre el conjunto ya
+--   estrechado por fecha (normalmente el rango de una sola meta, pequeño).
+--   Sin índice nuevo.
+--
+-- recalculate_goal_current_value(...) — goal_progress_source.sql:
+--   SELECT * FROM goals WHERE id = p_goal_id FOR UPDATE -> PK goals.id.
+--   Internamente llama a compute_goal_habit_logs_progress (ya cubierta
+--   arriba). Sin índice nuevo.
+--
+-- sync_goal_progress_from_goal_change() — goal_progress_source.sql:
+--   No ejecuta ninguna consulta propia — invoca
+--   recalculate_goal_current_value(new.id) directamente con un id ya
+--   conocido (PK). Sin índice nuevo.
+--
+-- get_habit_local_date(...) — habit_log_edit_window.sql:
+--   SELECT p.timezone FROM habits h JOIN profiles p ON p.id = h.user_id
+--   WHERE h.id = p_habit_id -> ambos lados del JOIN por PK (habits.id,
+--     profiles.id). Sin índice nuevo.
+--
+-- enforce_habit_log_edit_window() — habit_log_edit_window.sql:
+--   No ejecuta ninguna consulta propia además de llamar a
+--   get_habit_local_date (ya cubierta) — el resto son comparaciones de
+--   columnas OLD/NEW en memoria. Sin índice nuevo.
+--
+-- Confirmado: los 10 triggers/funciones inspeccionados tienen soporte de
+-- índice completo con lo ya existente (más el único índice nuevo de la
+-- Sección 1, relevante indirectamente para cualquier lectura futura de
+-- habits por lifecycle_status, aunque ningún trigger lo consulta hoy
+-- directamente).
+-- ----------------------------------------------------------------------------
+
+
+-- ============================================================================
+-- SECCIÓN 4 — RLS (rls_hardening.sql): EXISTS ya soportados, sin índice
+-- adicional
+-- ============================================================================
+--
+-- habit_categories (SELECT/INSERT/DELETE "by owner"):
+--   EXISTS (SELECT 1 FROM habits h WHERE h.id = habit_categories.habit_id
+--     AND h.user_id = auth.uid())
+--   EXISTS (SELECT 1 FROM categories c WHERE c.id = habit_categories.category_id
+--     AND c.user_id = auth.uid())
+--   Ambos EXISTS localizan la fila por su PK (habits.id / categories.id) y
+--   luego comparan user_id sobre esa ÚNICA fila ya obtenida — no es una
+--   búsqueda por user_id, es una comparación posterior a una búsqueda por
+--   PK. No se necesita ningún índice adicional sobre user_id para este
+--   patrón (tal como advierte explícitamente el encargo: "no agregues
+--   índices 'para RLS' si la búsqueda ya empieza por una PK única y luego
+--   valida una sola fila").
+--
+-- habit_logs (SELECT/INSERT/UPDATE/DELETE "by owner"):
+--   EXISTS (SELECT 1 FROM habits h WHERE h.id = habit_logs.habit_id AND
+--     h.user_id = auth.uid()) -> mismo patrón exacto que arriba (PK +
+--     comparación de una sola fila). Sin índice nuevo.
+--
+-- goals (INSERT/UPDATE "by owner", rama de habit_id):
+--   EXISTS (SELECT 1 FROM habits h WHERE h.id = goals.habit_id AND
+--     h.user_id = auth.uid()) -> mismo patrón. Sin índice nuevo.
+--
+-- profiles/categories/habits/goals (políticas directas auth.uid() =
+-- user_id / auth.uid() = id): estas SÍ son búsquedas reales por user_id
+-- (no una validación posterior a una fila ya localizada por PK) — ya
+-- cubiertas por profiles (PK id), categories_user_id_idx, habits_user_id_idx
+-- (y ahora también habits_user_id_lifecycle_status_idx), goals_user_id_idx.
+-- Sin índice adicional.
+-- ----------------------------------------------------------------------------
+
+
+-- ============================================================================
+-- SECCIÓN 5 — CANDIDATOS EVALUADOS Y RECHAZADOS (resumen consolidado;
+-- justificación detallada en las secciones 2-4)
+-- ============================================================================
+--
+--  1. habits(user_id, start_date) — listado en el encargo como candidato a
+--     revisar, pero NINGUNA de las 16 consultas documentadas lo requiere;
+--     agregarlo sería un índice especulativo para una funcionalidad no
+--     documentada. RECHAZADO.
+--  2. habit_logs(date, habit_id) — RECHAZADO (Sección 2, consultas 9-10):
+--     el UNIQUE(habit_id, date) ya cubre el patrón de acceso esperado
+--     ("empezar por el hábito"); no hay evidencia de que "empezar por
+--     fecha" sea necesario dado el volumen de datos documentado.
+--  3. habit_logs(habit_id, date) por separado del UNIQUE — RECHAZADO:
+--     sería un duplicado exacto del índice que el propio UNIQUE(habit_id,
+--     date) ya provee.
+--  4. goals(habit_id, progress_source, start_date, end_date) — RECHAZADO
+--     (Sección 2, consulta 14): baja cardinalidad de goals por habit_id
+--     hace la ganancia marginal; ninguna consulta interna real la usa hoy.
+--  5. habit_categories(category_id, habit_id) — RECHAZADO (Sección 2,
+--     consulta 6): el índice existente de una sola columna ya resuelve el
+--     filtro; ampliar a dos columnas no tiene un caso de uso confirmado
+--     (index-only scan no evidenciado como necesario).
+--  6. Índices parciales para "categorías activas por usuario", "hábitos
+--     activos por usuario", "goals con progress_source = 'habit_logs'" —
+--     evaluados y RECHAZADOS todos: en cada caso ya existe (o se crea en
+--     esta misma migración) un índice COMPUESTO no parcial que cubre el
+--     caso activo Y los demás estados con el mismo objeto, evitando
+--     necesitar un segundo índice para la papelera/histórico.
+--  7. Cualquier índice GIN/BRIN/GiST/hash — no evaluado como necesario:
+--     ninguna de las 16 consultas ni las funciones internas requiere
+--     búsqueda de texto completo, rangos multidimensionales adicionales
+--     (el único EXCLUDE con GiST ya existe y no se toca) ni hashing.
+--     RECHAZADO por falta de necesidad demostrable.
+--  8. Cualquier índice sobre columnas snapshot de habit_logs
+--     (goal_type_snapshot, target_value_snapshot, target_unit_snapshot,
+--     deadline_time_snapshot) — sin ninguna consulta documentada que
+--     filtre directamente por ellas (compute_goal_habit_logs_progress las
+--     LEE pero filtra por habit_id/date/status, no por las columnas
+--     snapshot en sí). RECHAZADO.
+--  9. CREATE INDEX CONCURRENTLY — no usado en esta migración: el proyecto
+--     está documentado con poco o ningún dato, y CONCURRENTLY no puede
+--     ejecutarse dentro de una transacción (rompería la naturaleza
+--     transaccional/reproducible de las migraciones versionadas). Se
+--     reporta como recomendación aparte para producción con datos reales,
+--     no implementada aquí (ver Riesgos, en el reporte de entrega).
+-- ----------------------------------------------------------------------------
+
+
+-- ============================================================================
+-- EXCLUSIONES CONFIRMADAS
+-- ============================================================================
+-- No se modifica RLS, políticas, funciones, triggers, constraints, enums,
+-- columnas, datos, lifecycle, progress_source, snapshots, ni la ventana de
+-- edición. No se implementa limpieza final (no se elimina
+-- habit_logs_habit_id_idx pese a la redundancia observada — reportada, no
+-- corregida), vistas materializadas, particionamiento, caché, estadísticas
+-- funcionales, ni índices especulativos para funcionalidades futuras no
+-- documentadas. No se ejecuta ANALYZE ni VACUUM ni se altera ninguna
+-- estadística de columna. No se usa CREATE INDEX CONCURRENTLY.
+-- ----------------------------------------------------------------------------
