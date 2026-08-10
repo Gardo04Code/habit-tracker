@@ -1,22 +1,31 @@
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowRight } from "lucide-react";
-import { activeHabits } from "../../data/mockHabits";
-import { getLogForHabitOnDate } from "../../data/mockHabitLogs";
-import { TODAY } from "../../data/referenceDate";
+import { ArrowRight, ListChecks } from "lucide-react";
+import type { ChecklistEntry } from "../../hooks/useDailyChecklist";
 import { StatusBadge } from "../ui/StatusBadge";
 import { Button } from "../ui/Button";
+import { EmptyState } from "../ui/EmptyState";
 
-export function TodaySummary() {
+interface TodaySummaryProps {
+  entries: ChecklistEntry[];
+}
+
+export function TodaySummary({ entries }: TodaySummaryProps) {
   const navigate = useNavigate();
-  const items = activeHabits.map((habit) => ({
-    habit,
-    log: getLogForHabitOnDate(habit.id, TODAY),
-  }));
+
+  if (entries.length === 0) {
+    return (
+      <EmptyState
+        icon={<ListChecks size={20} aria-hidden="true" />}
+        title="No hay hábitos programados para hoy"
+        description="Ninguno de tus hábitos activos aplica para el día de hoy."
+      />
+    );
+  }
 
   return (
     <div className="flex flex-col gap-3">
       <ul className="flex flex-col divide-y divide-border">
-        {items.map(({ habit, log }) => (
+        {entries.map(({ habit, status }) => (
           <li key={habit.id} className="flex items-center justify-between gap-3 py-2.5">
             <Link
               to="/checklist"
@@ -29,7 +38,7 @@ export function TodaySummary() {
               />
               <span className="truncate text-sm font-medium text-text-primary">{habit.name}</span>
             </Link>
-            <StatusBadge status={log?.status ?? "pending"} />
+            <StatusBadge status={status} />
           </li>
         ))}
       </ul>

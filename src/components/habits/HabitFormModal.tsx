@@ -2,9 +2,9 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import { Calendar, Palette, Repeat as RepeatIcon, Sparkles, Tag, Target } from "lucide-react";
 import type { FrequencyType, GoalType, Habit } from "../../types/habit";
-import type { HabitDraft } from "../../hooks/useHabitsManager";
-import { mockCategories } from "../../data/mockCategories";
+import type { HabitDraft } from "../../hooks/useHabits";
 import { HABIT_COLOR_OPTIONS, HABIT_ICON_OPTIONS } from "../../utils/habitIcons";
+import { AppError } from "../../lib/errors";
 import { TODAY } from "../../data/referenceDate";
 import { Modal } from "../ui/Modal";
 import { Button } from "../ui/Button";
@@ -30,8 +30,13 @@ interface HabitFormModalProps {
   isOpen: boolean;
   habit?: Habit;
   isNameTaken: (name: string, excludeId?: string) => boolean;
+  /** Solo categorías activas (RN explícita: una categoría eliminada no debe
+   * ofrecerse para nuevas asignaciones). */
+  categories: { id: string; name: string }[];
   onClose: () => void;
-  onSubmit: (draft: HabitDraft) => void;
+  /** Puede lanzar (error real de Supabase) — el modal permanece abierto y
+   * muestra el mensaje amigable; solo se cierra si la promesa resuelve. */
+  onSubmit: (draft: HabitDraft) => Promise<void>;
 }
 
 interface FormState {
@@ -104,22 +109,33 @@ function toFormState(habit?: Habit): FormState {
   };
 }
 
-export function HabitFormModal({ isOpen, habit, isNameTaken, onClose, onSubmit }: HabitFormModalProps) {
+export function HabitFormModal({ isOpen, habit, isNameTaken, categories, onClose, onSubmit }: HabitFormModalProps) {
   if (!isOpen) return null;
 
-  return <HabitFormModalContent habit={habit} isNameTaken={isNameTaken} onClose={onClose} onSubmit={onSubmit} />;
+  return (
+    <HabitFormModalContent
+      habit={habit}
+      isNameTaken={isNameTaken}
+      categories={categories}
+      onClose={onClose}
+      onSubmit={onSubmit}
+    />
+  );
 }
 
 interface HabitFormModalContentProps {
   habit?: Habit;
   isNameTaken: (name: string, excludeId?: string) => boolean;
+  categories: { id: string; name: string }[];
   onClose: () => void;
-  onSubmit: (draft: HabitDraft) => void;
+  onSubmit: (draft: HabitDraft) => Promise<void>;
 }
 
-function HabitFormModalContent({ habit, isNameTaken, onClose, onSubmit }: HabitFormModalContentProps) {
+function HabitFormModalContent({ habit, isNameTaken, categories, onClose, onSubmit }: HabitFormModalContentProps) {
   const [form, setForm] = useState<FormState>(() => toFormState(habit));
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -182,8 +198,10 @@ function HabitFormModalContent({ habit, isNameTaken, onClose, onSubmit }: HabitF
     return Object.keys(nextErrors).length === 0;
   }
 
-  function handleSubmit(event: FormEvent) {
+  async function handleSubmit(event: FormEvent) {
     event.preventDefault();
+    setSubmitError(null);
+    if (isSubmitting) return; // impide doble envío (doble clic/Enter)
     if (!validate()) return;
 
     const draft: HabitDraft = {
@@ -208,8 +226,18 @@ function HabitFormModalContent({ habit, isNameTaken, onClose, onSubmit }: HabitF
       allowPartial: form.goalType === "boolean" ? false : form.allowPartial,
     };
 
-    onSubmit(draft);
-    onClose();
+    setIsSubmitting(true);
+    try {
+      await onSubmit(draft);
+      // El modal solo se cierra si onSubmit resolvió sin lanzar — una
+      // operación fallida contra Supabase deja el formulario abierto con el
+      // error visible, sin perder lo ya escrito.
+      onClose();
+    } catch (caught) {
+      setSubmitError(caught instanceof AppError ? caught.friendlyMessage : caught instanceof Error ? caught.message : "Ocurrió un error inesperado. Intenta de nuevo.");
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -220,16 +248,18 @@ function HabitFormModalContent({ habit, isNameTaken, onClose, onSubmit }: HabitF
       description="Completa la información para dar seguimiento a este hábito."
       footer={
         <>
-          <Button variant="ghost" onClick={onClose}>
+          <Button variant="ghost" onClick={onClose} disabled={isSubmitting}>
             Cancelar
           </Button>
-          <Button variant="primary" onClick={handleSubmit}>
+          <Button variant="primary" onClick={handleSubmit} isLoading={isSubmitting}>
             {habit ? "Guardar cambios" : "Crear hábito"}
           </Button>
         </>
       }
     >
       <form className="flex flex-col gap-6" onSubmit={handleSubmit}>
+        {submitError && <p className="text-sm text-danger">{submitError}</p>}
+
         <section className="flex flex-col gap-3">
           <SectionTitle icon={Sparkles}>Datos básicos</SectionTitle>
           <Input
@@ -250,7 +280,12 @@ function HabitFormModalContent({ habit, isNameTaken, onClose, onSubmit }: HabitF
         <section className="flex flex-col gap-3">
           <SectionTitle icon={Tag}>Categorías</SectionTitle>
           <div className="flex flex-wrap gap-2">
-            {mockCategories.map((category) => {
+            {categories.length === 0 && (
+              <p className="text-xs text-text-secondary">
+                No tienes categorías activas todavía — puedes crear una en Configuración.
+              </p>
+            )}
+            {categories.map((category) => {
               const isSelected = form.categoryIds.includes(category.id);
               return (
                 <button

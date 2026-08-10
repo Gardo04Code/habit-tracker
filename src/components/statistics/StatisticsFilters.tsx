@@ -1,7 +1,5 @@
 import { Upload } from "lucide-react";
-import type { StatisticsPeriod } from "../../hooks/useStatistics";
-import { statisticsHabits } from "../../hooks/useStatistics";
-import { mockCategories } from "../../data/mockCategories";
+import type { StatisticsCategoryOption, StatisticsHabitOption, StatisticsPeriod } from "../../hooks/useStatistics";
 import { Card } from "../ui/Card";
 import { Select } from "../ui/Select";
 import { Button } from "../ui/Button";
@@ -10,6 +8,8 @@ interface StatisticsFiltersProps {
   period: StatisticsPeriod;
   habitId: string;
   categoryId: string;
+  habitOptions: StatisticsHabitOption[];
+  categoryOptions: StatisticsCategoryOption[];
   onPeriodChange: (value: StatisticsPeriod) => void;
   onHabitChange: (value: string) => void;
   onCategoryChange: (value: string) => void;
@@ -26,6 +26,8 @@ export function StatisticsFilters({
   period,
   habitId,
   categoryId,
+  habitOptions,
+  categoryOptions,
   onPeriodChange,
   onHabitChange,
   onCategoryChange,
@@ -45,7 +47,7 @@ export function StatisticsFilters({
         onChange={(event) => onHabitChange(event.target.value)}
         options={[
           { value: "all", label: "Todos los hábitos" },
-          ...statisticsHabits.map((habit) => ({ value: habit.id, label: habit.name })),
+          ...habitOptions.map((habit) => ({ value: habit.id, label: habit.name })),
         ]}
       />
       <Select
@@ -54,7 +56,7 @@ export function StatisticsFilters({
         onChange={(event) => onCategoryChange(event.target.value)}
         options={[
           { value: "all", label: "Todas las categorías" },
-          ...mockCategories.map((category) => ({ value: category.id, label: category.name })),
+          ...categoryOptions.map((category) => ({ value: category.id, label: category.name })),
         ]}
       />
       <Button variant="secondary" leadingIcon={<Upload size={16} />} onClick={onExport} className="w-full xl:w-auto">

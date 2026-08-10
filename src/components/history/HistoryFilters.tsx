@@ -1,10 +1,8 @@
 import { CalendarRange, Filter, Table2 } from "lucide-react";
 import clsx from "clsx";
 import type { HabitStatus } from "../../types/habit";
-import type { HistoryView } from "../../hooks/useHistoryLogs";
+import type { HistoryCategoryOption, HistoryHabitOption, HistoryView } from "../../hooks/useHistoryLogs";
 import type { StatusFilterValue } from "../../hooks/useDailyChecklist";
-import { browsableHabits } from "../../hooks/useHistoryLogs";
-import { mockCategories } from "../../data/mockCategories";
 import { getStatusLabel } from "../../utils/habitStatus";
 import { Card } from "../ui/Card";
 import { Input } from "../ui/Input";
@@ -17,6 +15,8 @@ interface HistoryFiltersProps {
   categoryId: string;
   status: StatusFilterValue;
   view: HistoryView;
+  habitOptions: HistoryHabitOption[];
+  categoryOptions: HistoryCategoryOption[];
   onDateFromChange: (value: string) => void;
   onDateToChange: (value: string) => void;
   onHabitChange: (value: string) => void;
@@ -34,6 +34,8 @@ export function HistoryFilters({
   categoryId,
   status,
   view,
+  habitOptions,
+  categoryOptions,
   onDateFromChange,
   onDateToChange,
   onHabitChange,
@@ -82,13 +84,13 @@ export function HistoryFilters({
           label="Hábito"
           value={habitId}
           onChange={(event) => onHabitChange(event.target.value)}
-          options={[{ value: "all", label: "Todos los hábitos" }, ...browsableHabits.map((habit) => ({ value: habit.id, label: habit.name }))]}
+          options={[{ value: "all", label: "Todos los hábitos" }, ...habitOptions.map((habit) => ({ value: habit.id, label: habit.name }))]}
         />
         <Select
           label="Categoría"
           value={categoryId}
           onChange={(event) => onCategoryChange(event.target.value)}
-          options={[{ value: "all", label: "Todas las categorías" }, ...mockCategories.map((category) => ({ value: category.id, label: category.name }))]}
+          options={[{ value: "all", label: "Todas las categorías" }, ...categoryOptions.map((category) => ({ value: category.id, label: category.name }))]}
         />
         <Select
           label="Estado"

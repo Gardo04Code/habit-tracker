@@ -1,5 +1,4 @@
 import { Search } from "lucide-react";
-import { mockCategories } from "../../data/mockCategories";
 import { Select } from "../ui/Select";
 
 interface HabitFiltersProps {
@@ -7,9 +6,11 @@ interface HabitFiltersProps {
   onSearchChange: (value: string) => void;
   categoryId: string;
   onCategoryChange: (value: string) => void;
+  /** Solo categorías activas — igual que en el selector de HabitFormModal. */
+  categories: { id: string; name: string }[];
 }
 
-export function HabitFilters({ search, onSearchChange, categoryId, onCategoryChange }: HabitFiltersProps) {
+export function HabitFilters({ search, onSearchChange, categoryId, onCategoryChange, categories }: HabitFiltersProps) {
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
       <div className="flex-1">
@@ -35,7 +36,7 @@ export function HabitFilters({ search, onSearchChange, categoryId, onCategoryCha
           onChange={(event) => onCategoryChange(event.target.value)}
           options={[
             { value: "all", label: "Todas las categorías" },
-            ...mockCategories.map((category) => ({ value: category.id, label: category.name })),
+            ...categories.map((category) => ({ value: category.id, label: category.name })),
           ]}
         />
       </div>

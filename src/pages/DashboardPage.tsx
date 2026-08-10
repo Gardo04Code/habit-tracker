@@ -1,11 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import { CalendarDays, CheckCircle2, Sparkles, Target } from "lucide-react";
-import { activeHabits } from "../data/mockHabits";
-import { mockDashboard } from "../data/mockDashboard";
-import { getInsights } from "../utils/insightsEngine";
-import { mockUser } from "../data/mockUser";
-import { TODAY } from "../data/referenceDate";
+import { useDashboard } from "../hooks/useDashboard";
+import { isSupabaseDataSource } from "../lib/dataSource";
 import { formatFullDate } from "../utils/formatDate";
 import { Card } from "../components/ui/Card";
 import { SectionHeader } from "../components/ui/SectionHeader";
@@ -22,22 +19,45 @@ import { HabitStrengthList } from "../components/dashboard/HabitStrengthList";
 import { InsightCard } from "../components/dashboard/InsightCard";
 
 export function DashboardPage() {
-  const [isLoading, setIsLoading] = useState(true);
-  const insights = useMemo(() => getInsights(), []);
-  const [dismissedInsightIds, setDismissedInsightIds] = useState<Set<string>>(() => new Set());
+  const {
+    displayName,
+    today,
+    hasActiveHabits,
+    todayChecklist,
+    completedToday,
+    totalToday,
+    currentStreak,
+    bestStreak,
+    streakSummary,
+    weeklyCompletionRate,
+    weeklyCompletionTrend,
+    monthlyGoalProgress,
+    monthlyGoalTarget,
+    weeklyProgress,
+    statusBreakdown,
+    strongestHabits,
+    weakestHabits,
+    insights,
+    recommendations,
+    loading,
+    error,
+  } = useDashboard();
 
-  useEffect(() => {
-    const timeout = setTimeout(() => setIsLoading(false), 550);
-    return () => clearTimeout(timeout);
-  }, []);
+  const [dismissedInsightIds, setDismissedInsightIds] = useState<Set<string>>(() => new Set());
+  const [dismissedRecommendationIds, setDismissedRecommendationIds] = useState<Set<string>>(() => new Set());
 
   const visibleInsights = insights.filter((insight) => !dismissedInsightIds.has(insight.id));
+  const visibleRecommendations = recommendations.filter((rec) => !dismissedRecommendationIds.has(rec.id));
 
   function dismissInsight(id: string) {
     setDismissedInsightIds((current) => new Set(current).add(id));
   }
 
-  if (activeHabits.length === 0) {
+  function dismissRecommendation(id: string) {
+    setDismissedRecommendationIds((current) => new Set(current).add(id));
+  }
+
+  if (!loading && !hasActiveHabits) {
     return (
       <EmptyState
         icon={<Target size={22} aria-hidden="true" />}
@@ -47,19 +67,23 @@ export function DashboardPage() {
     );
   }
 
+  const firstName = displayName ? displayName.split(" ")[0] : "";
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-1">
         <h1 className="text-xl font-semibold tracking-tight text-text-primary sm:text-2xl">
-          Hola, {mockUser.name.split(" ")[0]}
+          {firstName ? `Hola, ${firstName}` : "Hola"}
         </h1>
         <p className="flex items-center gap-1.5 text-sm text-text-secondary capitalize">
           <CalendarDays size={14} aria-hidden="true" />
-          {formatFullDate(TODAY)}
+          {formatFullDate(today)}
         </p>
       </div>
 
-      {isLoading ? (
+      {error && <p className="text-sm text-danger">{error}</p>}
+
+      {loading ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
           <Skeleton className="h-44 sm:col-span-2 lg:col-span-2" />
           <Skeleton className="h-44" />
@@ -69,26 +93,26 @@ export function DashboardPage() {
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
           <div className="sm:col-span-2 lg:col-span-2">
-            <HeroMetric streak={mockDashboard.currentStreak} bestStreak={mockDashboard.bestStreakThisMonth} />
+            <HeroMetric streak={currentStreak} bestStreak={bestStreak} />
           </div>
           <MetricCard
             icon={<CheckCircle2 size={18} aria-hidden="true" />}
             label="Cumplimiento semanal"
-            value={`${mockDashboard.weeklyCompletionRate}%`}
-            trendValue={mockDashboard.weeklyCompletionTrend}
+            value={`${weeklyCompletionRate}%`}
+            trendValue={weeklyCompletionTrend}
             trendLabel="% vs. semana anterior"
             tone="primary"
           />
           <MetricCard
             icon={<Sparkles size={18} aria-hidden="true" />}
             label="Hábitos completados hoy"
-            value={`${mockDashboard.habitsCompletedToday} de ${mockDashboard.totalHabitsToday}`}
+            value={`${completedToday} de ${totalToday}`}
             tone="success"
           />
           <MetricCard
             icon={<Target size={18} aria-hidden="true" />}
             label="Meta mensual"
-            value={`${mockDashboard.monthlyGoalProgress}% de ${mockDashboard.monthlyGoalTarget}%`}
+            value={`${monthlyGoalProgress}% de ${monthlyGoalTarget}%`}
             tone="primary"
           />
         </div>
@@ -99,29 +123,29 @@ export function DashboardPage() {
           <Card>
             <SectionHeader title="Resumen de hoy" description="Estado de tus hábitos activos para hoy." />
             <div className="mt-4">
-              <TodaySummary />
+              <TodaySummary entries={todayChecklist} />
             </div>
           </Card>
           <Card>
             <SectionHeader title="Progreso semanal" description="Cumplimiento diario de los últimos 7 días." />
             <div className="mt-4">
-              <WeeklyProgressChart data={mockDashboard.weeklyProgress} goal={mockDashboard.monthlyGoalTarget} />
+              <WeeklyProgressChart data={weeklyProgress} goal={monthlyGoalTarget} />
             </div>
             <div className="mt-2">
-              <WeeklyInsightBanner trend={mockDashboard.weeklyCompletionTrend} />
+              <WeeklyInsightBanner trend={weeklyCompletionTrend} />
             </div>
           </Card>
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
             <Card>
               <SectionHeader title="Hábitos más fuertes" description="Mayor cumplimiento reciente." />
               <div className="mt-4">
-                <HabitStrengthList entries={mockDashboard.strongestHabits} variant="strong" />
+                <HabitStrengthList entries={strongestHabits} variant="strong" />
               </div>
             </Card>
             <Card>
               <SectionHeader title="Hábitos por mejorar" description="Necesitan más atención esta semana." />
               <div className="mt-4">
-                <HabitStrengthList entries={mockDashboard.weakestHabits} variant="weak" />
+                <HabitStrengthList entries={weakestHabits} variant="weak" />
               </div>
             </Card>
           </div>
@@ -131,40 +155,78 @@ export function DashboardPage() {
           <Card>
             <SectionHeader title="Distribución de estados" description="Registros de la semana por estado." />
             <div className="mt-4">
-              <ProgressDonut data={mockDashboard.statusBreakdown} />
+              <ProgressDonut data={statusBreakdown} />
             </div>
           </Card>
           <Card>
             <SectionHeader title="Constancia" description="Tu racha de los últimos 5 días." />
             <div className="mt-4">
-              <StreakTimeline />
+              <StreakTimeline summary={streakSummary} />
             </div>
           </Card>
         </div>
       </div>
 
       <Card>
-        <SectionHeader
-          title="Centro de Inteligencia"
-          description="Análisis continuo de tus hábitos, generado por tu asistente de IA."
-        />
-        <div className="mt-4">
-          <AnimatePresence initial={false} mode="popLayout">
-            {visibleInsights.length > 0 ? (
-              <div className="scrollbar-none flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2 sm:grid sm:grid-cols-2 sm:overflow-visible lg:grid-cols-1 lg:gap-3">
-                {visibleInsights.map((insight, index) => (
-                  <InsightCard key={insight.id} insight={insight} index={index} onDismiss={dismissInsight} />
-                ))}
-              </div>
-            ) : (
-              <EmptyState
-                icon={<Sparkles size={20} aria-hidden="true" />}
-                title="No hay insights pendientes"
-                description="Tu asistente de IA seguirá analizando tus hábitos y avisará cuando encuentre algo relevante."
-              />
-            )}
-          </AnimatePresence>
-        </div>
+        {isSupabaseDataSource ? (
+          <>
+            <SectionHeader
+              title="Recomendaciones"
+              description="Sugerencias generadas con reglas simples sobre tus datos recientes — no son predicciones de un modelo de IA."
+            />
+            <div className="mt-4">
+              {visibleRecommendations.length > 0 ? (
+                <ul className="flex flex-col gap-2">
+                  {visibleRecommendations.map((rec) => (
+                    <li
+                      key={rec.id}
+                      className="flex items-center justify-between gap-3 rounded-xl border border-border bg-surface-muted px-4 py-3"
+                    >
+                      <span className="text-sm text-text-primary">{rec.text}</span>
+                      <button
+                        type="button"
+                        onClick={() => dismissRecommendation(rec.id)}
+                        className="shrink-0 text-xs font-medium text-text-secondary transition-colors hover:text-text-primary"
+                      >
+                        Descartar
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <EmptyState
+                  icon={<Sparkles size={20} aria-hidden="true" />}
+                  title="No hay recomendaciones por ahora"
+                  description="Seguimos observando tus datos recientes y avisaremos cuando encontremos algo relevante."
+                />
+              )}
+            </div>
+          </>
+        ) : (
+          <>
+            <SectionHeader
+              title="Centro de Inteligencia"
+              description="Análisis continuo de tus hábitos, generado por tu asistente de IA."
+            />
+            <div className="mt-4">
+              <AnimatePresence initial={false} mode="popLayout">
+                {visibleInsights.length > 0 ? (
+                  <div className="scrollbar-none flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2 sm:grid sm:grid-cols-2 sm:overflow-visible lg:grid-cols-1 lg:gap-3">
+                    {visibleInsights.map((insight, index) => (
+                      <InsightCard key={insight.id} insight={insight} index={index} onDismiss={dismissInsight} />
+                    ))}
+                  </div>
+                ) : (
+                  <EmptyState
+                    icon={<Sparkles size={20} aria-hidden="true" />}
+                    title="No hay insights pendientes"
+                    description="Tu asistente de IA seguirá analizando tus hábitos y avisará cuando encuentre algo relevante."
+                  />
+                )}
+              </AnimatePresence>
+            </div>
+          </>
+        )}
       </Card>
     </div>
   );

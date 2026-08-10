@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ChevronLeft, ChevronRight, Trophy } from "lucide-react";
 import clsx from "clsx";
-import { getEntriesForDay, statusToDayRate } from "../../hooks/useHistoryLogs";
+import { getEntriesForDay, statusToDayRate, type HistoryEntry } from "../../hooks/useHistoryLogs";
 import {
   addDays,
   addMonths,
@@ -10,8 +10,10 @@ import {
   getDaysInMonth,
   getMondayFirstWeekday,
   startOfMonth,
+  toDateOnly,
 } from "../../utils/formatDate";
-import { TODAY } from "../../data/referenceDate";
+import { TODAY as MOCK_TODAY } from "../../data/referenceDate";
+import { isSupabaseDataSource } from "../../lib/dataSource";
 import { Card } from "../ui/Card";
 import { IconButton } from "../ui/IconButton";
 import { StatusBadge } from "../ui/StatusBadge";
@@ -19,11 +21,17 @@ import { EmptyState } from "../ui/EmptyState";
 import { CalendarRange } from "lucide-react";
 
 interface HistoryCalendarProps {
+  entries: HistoryEntry[];
   habitId: string;
   categoryId: string;
 }
 
 const WEEKDAY_HEADERS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+
+// MOCK_TODAY (src/data/referenceDate.ts) es una fecha fija de la era mock.
+// En modo Supabase el mes/día por defecto y el resaltado "hoy" deben partir
+// de la fecha real — mismo motivo que useHistoryLogs.ts (DEFAULT_REFERENCE_DATE).
+const TODAY = isSupabaseDataSource ? toDateOnly(new Date()) : MOCK_TODAY;
 
 function levelForRate(rate: number): number {
   if (rate === 0) return 0;
@@ -35,7 +43,7 @@ function levelForRate(rate: number): number {
 
 const LEVEL_CLASSES = ["bg-surface-muted", "bg-danger/30", "bg-warning/40", "bg-success/50", "bg-success"];
 
-export function HistoryCalendar({ habitId, categoryId }: HistoryCalendarProps) {
+export function HistoryCalendar({ entries, habitId, categoryId }: HistoryCalendarProps) {
   const [month, setMonth] = useState(() => startOfMonth(TODAY));
   const [selectedDay, setSelectedDay] = useState(TODAY);
 
@@ -46,7 +54,7 @@ export function HistoryCalendar({ habitId, categoryId }: HistoryCalendarProps) {
     ...Array.from({ length: daysInMonth }, (_, index) => addDays(month, index)),
   ];
 
-  const dayEntries = getEntriesForDay(selectedDay, habitId, categoryId);
+  const dayEntries = getEntriesForDay(entries, selectedDay, habitId, categoryId);
 
   return (
     <div className="flex flex-col gap-4 lg:flex-row">
@@ -76,9 +84,9 @@ export function HistoryCalendar({ habitId, categoryId }: HistoryCalendarProps) {
           {cells.map((date, index) => {
             if (!date) return <span key={`blank-${index}`} />;
 
-            const entries = getEntriesForDay(date, habitId, categoryId);
-            const rate = statusToDayRate(entries.map((entry) => entry.log));
-            const hasGoalExceeded = entries.some((entry) => entry.goalExceeded);
+            const dayCellEntries = getEntriesForDay(entries, date, habitId, categoryId);
+            const rate = statusToDayRate(dayCellEntries.map((entry) => entry.log));
+            const hasGoalExceeded = dayCellEntries.some((entry) => entry.goalExceeded);
             const isSelected = date === selectedDay;
             const isToday = date === TODAY;
 
@@ -135,7 +143,7 @@ export function HistoryCalendar({ habitId, categoryId }: HistoryCalendarProps) {
                   <p className="truncate text-sm font-medium text-text-primary">{entry.habit.name}</p>
                   {entry.log.value !== undefined && (
                     <p className="text-xs text-text-secondary">
-                      {entry.log.value} {entry.habit.targetUnit ?? ""}
+                      {entry.log.value} {entry.targetUnit ?? ""}
                       {entry.goalExceeded && " · meta superada"}
                     </p>
                   )}

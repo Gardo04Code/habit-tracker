@@ -1,4 +1,4 @@
-import { CalendarClock, Flag, Pencil, RotateCcw, CheckCircle2, Target, Trash2, XCircle } from "lucide-react";
+import { CalendarClock, Flag, Pause, Pencil, RotateCcw, Target, Trash2, Undo2 } from "lucide-react";
 import type { Goal, GoalStatus } from "../../types/goal";
 import type { Habit } from "../../types/habit";
 import { calculatePercentage, clampDisplayPercentage, isGoalExceeded } from "../../utils/calculateProgress";
@@ -12,10 +12,11 @@ interface GoalListRowProps {
   goal: Goal;
   habit?: Habit;
   onEdit: () => void;
-  onMarkCompleted?: () => void;
-  onMarkExpired?: () => void;
+  onPause?: () => void;
   onReactivate?: () => void;
   onDelete: () => void;
+  onRestore?: () => void;
+  isSaving?: boolean;
 }
 
 const STATUS_META: Record<GoalStatus, { label: string; tone: BadgeTone }> = {
@@ -24,26 +25,36 @@ const STATUS_META: Record<GoalStatus, { label: string; tone: BadgeTone }> = {
   expired: { label: "Vencida", tone: "danger" },
 };
 
-export function GoalListRow({ goal, habit, onEdit, onMarkCompleted, onMarkExpired, onReactivate, onDelete }: GoalListRowProps) {
+const LIFECYCLE_META = {
+  paused: { label: "Pausada", tone: "warning" as BadgeTone },
+  deleted: { label: "En papelera", tone: "neutral" as BadgeTone },
+};
+
+const PROGRESS_SOURCE_LABEL: Record<string, string> = {
+  habit_logs: "Automático",
+  manual: "Manual",
+  calculated: "Calculado",
+};
+
+export function GoalListRow({ goal, habit, onEdit, onPause, onReactivate, onDelete, onRestore, isSaving }: GoalListRowProps) {
   const HabitIcon = habit ? getHabitIcon(habit.icon) : Target;
   const percentage = calculatePercentage(goal.currentValue, goal.targetValue);
   const displayPercentage = clampDisplayPercentage(percentage);
   const exceeded = isGoalExceeded(goal.currentValue, goal.targetValue);
   const statusMeta = STATUS_META[goal.status];
+  const lifecycleMeta = goal.lifecycleStatus && goal.lifecycleStatus !== "active" ? LIFECYCLE_META[goal.lifecycleStatus] : undefined;
+  const isInTrash = goal.lifecycleStatus === "deleted";
 
-  const menuItems: OverflowMenuItem[] = [
-    ...(onMarkCompleted
-      ? [{ label: "Marcar como cumplida", icon: <CheckCircle2 size={16} />, onClick: onMarkCompleted }]
-      : []),
-    ...(onMarkExpired
-      ? [{ label: "Marcar como vencida", icon: <XCircle size={16} />, onClick: onMarkExpired }]
-      : []),
-    ...(onReactivate ? [{ label: "Reactivar meta", icon: <RotateCcw size={16} />, onClick: onReactivate }] : []),
-    { label: "Eliminar meta", icon: <Trash2 size={16} />, onClick: onDelete, tone: "danger" as const },
-  ];
+  const menuItems: OverflowMenuItem[] = isInTrash
+    ? [{ label: "Restaurar meta", icon: <Undo2 size={16} />, onClick: onRestore ?? (() => {}) }]
+    : [
+        ...(onPause ? [{ label: "Pausar meta", icon: <Pause size={16} />, onClick: onPause }] : []),
+        ...(onReactivate ? [{ label: "Reactivar meta", icon: <RotateCcw size={16} />, onClick: onReactivate }] : []),
+        { label: "Eliminar meta", icon: <Trash2 size={16} />, onClick: onDelete, tone: "danger" as const },
+      ];
 
   return (
-    <div className="flex flex-col gap-3 border-b border-border p-4 last:border-0 lg:flex-row lg:items-center lg:gap-4">
+    <div className={`flex flex-col gap-3 border-b border-border p-4 last:border-0 lg:flex-row lg:items-center lg:gap-4 ${isSaving ? "opacity-60" : ""}`}>
       <div className="flex min-w-0 items-center gap-3 lg:w-80 lg:shrink-0">
         <span
           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-white"
@@ -55,7 +66,10 @@ export function GoalListRow({ goal, habit, onEdit, onMarkCompleted, onMarkExpire
         </span>
         <div className="min-w-0">
           <p className="text-sm font-semibold text-text-primary">{goal.title}</p>
-          <p className="truncate text-xs text-text-secondary">{habit ? habit.name : "Meta general"}</p>
+          <p className="truncate text-xs text-text-secondary">
+            {habit ? habit.name : "Meta general"}
+            {goal.progressSource && ` · ${PROGRESS_SOURCE_LABEL[goal.progressSource]}`}
+          </p>
           {exceeded && (
             <p className="mt-0.5 flex items-center gap-1 text-xs text-primary">
               <Flag size={11} aria-hidden="true" />
@@ -94,8 +108,9 @@ export function GoalListRow({ goal, habit, onEdit, onMarkCompleted, onMarkExpire
           </span>
         </span>
         <Badge tone={statusMeta.tone}>{statusMeta.label}</Badge>
+        {lifecycleMeta && <Badge tone={lifecycleMeta.tone}>{lifecycleMeta.label}</Badge>}
         <div className="flex items-center gap-1.5">
-          <IconButton icon={<Pencil size={15} />} label="Editar meta" variant="secondary" onClick={onEdit} />
+          <IconButton icon={<Pencil size={15} />} label="Editar meta" variant="secondary" onClick={onEdit} disabled={isInTrash} />
           <OverflowMenu items={menuItems} label={`Más acciones para ${goal.title}`} />
         </div>
       </div>

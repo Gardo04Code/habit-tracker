@@ -1,6 +1,6 @@
 import { Lock, Pencil, Table2 } from "lucide-react";
 import { Link } from "react-router-dom";
-import type { HistoryEntry } from "../../hooks/useHistoryLogs";
+import { getReadOnlyReasonMessage, type HistoryEntry } from "../../hooks/useHistoryLogs";
 import { formatShortDate, formatWeekdayLabel } from "../../utils/formatDate";
 import { getHabitIcon } from "../../utils/habitIcons";
 import { StatusBadge } from "../ui/StatusBadge";
@@ -30,10 +30,14 @@ function EditionCell({ entry }: { entry: HistoryEntry }) {
       </Link>
     );
   }
+  const title = entry.readOnlyReason
+    ? getReadOnlyReasonMessage(entry.readOnlyReason)
+    : "Registro de solo lectura";
   return (
     <span
       className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border text-text-disabled"
-      title="Registro de solo lectura: tiene más de 7 días de antigüedad"
+      title={title}
+      aria-label={title}
     >
       <Lock size={14} aria-hidden="true" />
     </span>
@@ -92,7 +96,7 @@ export function HistoryTable({ entries, totalEntries, page, totalPages, pageSize
                     <StatusBadge status={entry.log.status} />
                   </td>
                   <td className="px-4 py-3 text-text-secondary">{entry.log.value ?? "—"}</td>
-                  <td className="px-4 py-3 text-text-secondary">{entry.habit.targetValue ?? "—"}</td>
+                  <td className="px-4 py-3 text-text-secondary">{entry.targetValue ?? "—"}</td>
                   <td className="px-4 py-3">
                     {entry.percentage !== undefined ? (
                       <div className="flex items-center gap-2">
@@ -141,7 +145,7 @@ export function HistoryTable({ entries, totalEntries, page, totalPages, pageSize
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-text-secondary">
               <span>Valor: {entry.log.value ?? "—"}</span>
-              <span>Meta: {entry.habit.targetValue ?? "—"}</span>
+              <span>Meta: {entry.targetValue ?? "—"}</span>
               {entry.percentage !== undefined && (
                 <span className={entry.goalExceeded ? "font-medium text-primary" : ""}>{entry.percentage}%</span>
               )}

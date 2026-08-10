@@ -3,6 +3,7 @@ import { useHistoryLogs } from "../hooks/useHistoryLogs";
 import { downloadHistoryCsv } from "../utils/exportHistory";
 import { SectionHeader } from "../components/ui/SectionHeader";
 import { Button } from "../components/ui/Button";
+import { Skeleton } from "../components/ui/Skeleton";
 import { HistoryFilters } from "../components/history/HistoryFilters";
 import { HistorySummary } from "../components/history/HistorySummary";
 import { HistoryTable } from "../components/history/HistoryTable";
@@ -28,8 +29,13 @@ export function HistoryPage() {
     setPage,
     entries,
     paginatedEntries,
+    allEntries,
     summary,
     comparison,
+    habitOptions,
+    categoryOptions,
+    loading,
+    error,
   } = useHistoryLogs();
 
   return (
@@ -50,6 +56,8 @@ export function HistoryPage() {
         }
       />
 
+      {error && <p className="text-sm text-danger">{error}</p>}
+
       <HistoryFilters
         dateFrom={dateFrom}
         dateTo={dateTo}
@@ -57,6 +65,8 @@ export function HistoryPage() {
         categoryId={categoryId}
         status={status}
         view={view}
+        habitOptions={habitOptions}
+        categoryOptions={categoryOptions}
         onDateFromChange={setDateFrom}
         onDateToChange={setDateTo}
         onHabitChange={setHabitId}
@@ -65,19 +75,28 @@ export function HistoryPage() {
         onViewChange={setView}
       />
 
-      <HistorySummary summary={summary} comparison={comparison} />
-
-      {view === "table" ? (
-        <HistoryTable
-          entries={paginatedEntries}
-          totalEntries={entries.length}
-          page={page}
-          totalPages={totalPages}
-          pageSize={pageSize}
-          onPageChange={setPage}
-        />
+      {loading ? (
+        <div className="flex flex-col gap-3">
+          <Skeleton className="h-24" />
+          <Skeleton className="h-40" />
+        </div>
       ) : (
-        <HistoryCalendar habitId={habitId} categoryId={categoryId} />
+        <>
+          <HistorySummary summary={summary} comparison={comparison} />
+
+          {view === "table" ? (
+            <HistoryTable
+              entries={paginatedEntries}
+              totalEntries={entries.length}
+              page={page}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              onPageChange={setPage}
+            />
+          ) : (
+            <HistoryCalendar entries={allEntries} habitId={habitId} categoryId={categoryId} />
+          )}
+        </>
       )}
     </div>
   );

@@ -10,6 +10,11 @@ interface DeleteHabitModalProps {
   habitName: string;
   onClose: () => void;
   onConfirm: (option: DeleteHabitOption) => void;
+  /** "Eliminar hábito y todos sus registros" todavía no está implementado
+   * contra Supabase (eliminación física fuera de alcance) — se oculta esa
+   * opción en vez de dejarla fallar al confirmarla. Por defecto `true`
+   * (modo mock, comportamiento sin cambios). */
+  allowHardDelete?: boolean;
 }
 
 const OPTIONS: { value: DeleteHabitOption; title: string; description: string; destructive?: boolean }[] = [
@@ -31,12 +36,13 @@ const OPTIONS: { value: DeleteHabitOption; title: string; description: string; d
   },
 ];
 
-export function DeleteHabitModal({ isOpen, habitName, onClose, onConfirm }: DeleteHabitModalProps) {
+export function DeleteHabitModal({ isOpen, habitName, onClose, onConfirm, allowHardDelete = true }: DeleteHabitModalProps) {
   const [selected, setSelected] = useState<DeleteHabitOption>("archive");
+  const visibleOptions = allowHardDelete ? OPTIONS : OPTIONS.filter((option) => option.value !== "delete_habit_and_logs");
 
   if (!isOpen) return null;
 
-  const selectedOption = OPTIONS.find((option) => option.value === selected)!;
+  const selectedOption = visibleOptions.find((option) => option.value === selected) ?? visibleOptions[0];
 
   return (
     <Modal
@@ -62,7 +68,7 @@ export function DeleteHabitModal({ isOpen, habitName, onClose, onConfirm }: Dele
       }
     >
       <div role="radiogroup" aria-label="Opciones de eliminación" className="flex flex-col gap-2">
-        {OPTIONS.map((option) => (
+        {visibleOptions.map((option) => (
           <label
             key={option.value}
             className={clsx(

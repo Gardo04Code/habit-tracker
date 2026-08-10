@@ -4,6 +4,7 @@ import { downloadStatisticsCsv } from "../utils/exportStatistics";
 import { SectionHeader } from "../components/ui/SectionHeader";
 import { Card } from "../components/ui/Card";
 import { EmptyState } from "../components/ui/EmptyState";
+import { Skeleton } from "../components/ui/Skeleton";
 import { StatisticsFilters } from "../components/statistics/StatisticsFilters";
 import { StatisticsKpis } from "../components/statistics/StatisticsKpis";
 import { EvolutionLineChart } from "../components/statistics/EvolutionLineChart";
@@ -28,6 +29,10 @@ export function StatisticsPage() {
     kpis,
     isPeriodEmpty,
     hasInsufficientHistory,
+    habitOptions,
+    categoryOptions,
+    loading,
+    error,
   } = useStatistics();
 
   return (
@@ -38,17 +43,26 @@ export function StatisticsPage() {
         description="Analiza tu comportamiento y descubre patrones para seguir mejorando."
       />
 
+      {error && <p className="text-sm text-danger">{error}</p>}
+
       <StatisticsFilters
         period={period}
         habitId={habitId}
         categoryId={categoryId}
+        habitOptions={habitOptions}
+        categoryOptions={categoryOptions}
         onPeriodChange={setPeriod}
         onHabitChange={setHabitId}
         onCategoryChange={setCategoryId}
         onExport={() => downloadStatisticsCsv(dailyRates, period)}
       />
 
-      {hasInsufficientHistory ? (
+      {loading ? (
+        <div className="flex flex-col gap-3">
+          <Skeleton className="h-24" />
+          <Skeleton className="h-64" />
+        </div>
+      ) : hasInsufficientHistory ? (
         <EmptyState
           icon={<BarChart3 size={22} aria-hidden="true" />}
           title="Este hábito todavía no tiene historial suficiente"

@@ -6,8 +6,11 @@ import type { HabitStatus } from "../types/habit";
 import { useDailyChecklist } from "../hooks/useDailyChecklist";
 import { TODAY } from "../data/referenceDate";
 import { mockUser } from "../data/mockUser";
+import { isSupabaseDataSource } from "../lib/dataSource";
+import { toDateOnly } from "../utils/formatDate";
 import { calculateBestAggregateStreak, calculateCurrentAggregateStreak } from "../utils/streakTimeline";
 import { EmptyState } from "../components/ui/EmptyState";
+import { Skeleton } from "../components/ui/Skeleton";
 import { StatusFilter } from "../components/checklist/StatusFilter";
 import { HabitMissionCard } from "../components/checklist/HabitMissionCard";
 import { MotivationHeader } from "../components/checklist/MotivationHeader";
@@ -22,7 +25,12 @@ const itemVariants = { hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 }
 export function DailyChecklistPage() {
   const [searchParams] = useSearchParams();
   const dateParam = searchParams.get("date");
-  const initialDate = dateParam && DATE_PARAM_PATTERN.test(dateParam) ? dateParam : TODAY;
+  // TODAY (src/data/referenceDate.ts) es una fecha fija de la era mock
+  // ("2026-07-21"), usada deliberadamente para que el histórico simulado
+  // sea coherente. En modo Supabase no tiene sentido: el checklist debe
+  // abrir en la fecha real de hoy, no en esa fecha fija del pasado.
+  const defaultDate = isSupabaseDataSource ? toDateOnly(new Date()) : TODAY;
+  const initialDate = dateParam && DATE_PARAM_PATTERN.test(dateParam) ? dateParam : defaultDate;
   const [isPanelOpen, setIsPanelOpen] = useState(false);
 
   const {
@@ -40,6 +48,10 @@ export function DailyChecklistPage() {
     markNotApplicable,
     resetEntry,
     setNote,
+    loading,
+    error,
+    actionError,
+    isSaving,
   } = useDailyChecklist(initialDate);
 
   const counts = STATUS_LIST.reduce(
@@ -72,15 +84,24 @@ export function DailyChecklistPage() {
         personalRecord={personalRecord}
       />
 
-      {allEntries.length === 0 ? (
+      {error && <p className="text-sm text-danger">{error}</p>}
+      {actionError && <p className="text-sm text-danger">{actionError}</p>}
+
+      {loading ? (
+        <div className="flex flex-col gap-3">
+          <Skeleton className="h-24" />
+          <Skeleton className="h-24" />
+          <Skeleton className="h-24" />
+        </div>
+      ) : allEntries.length === 0 ? (
         <EmptyState
           icon={<ListChecks size={22} aria-hidden="true" />}
           title="No hay hábitos programados para este día"
           description="Prueba con otra fecha o crea un nuevo hábito desde Mis hábitos."
         />
       ) : (
-        <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1fr_320px]">
-          <div className="flex flex-col gap-4">
+        <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="flex min-w-0 flex-col gap-4">
             <div className="flex items-center justify-between gap-2">
               <div>
                 <h2 className="text-base font-semibold text-text-primary">Tu checklist de hoy</h2>
@@ -116,6 +137,7 @@ export function DailyChecklistPage() {
                       onMarkNotApplicable={() => markNotApplicable(entry.habit)}
                       onReset={() => resetEntry(entry.habit)}
                       onSaveNote={(note) => setNote(entry.habit, note)}
+                      isSaving={isSaving(entry.habit.id)}
                     />
                   </motion.div>
                 ))}

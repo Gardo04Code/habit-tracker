@@ -1,7 +1,7 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Flame, Trophy } from "lucide-react";
-import { getStreakSummary } from "../../utils/streakTimeline";
+import type { StreakSummary } from "../../types/streak";
 import { getHabitAccent } from "../../utils/habitAccent";
 import { getHabitIcon } from "../../utils/habitIcons";
 import { formatFullDate } from "../../utils/formatDate";
@@ -19,8 +19,11 @@ function getMotivationalMessage(currentStreak: number, remainingToRecord: number
   return "Sigue así, tu constancia está dando resultados.";
 }
 
-export function StreakTimeline() {
-  const summary = useMemo(() => getStreakSummary(5), []);
+interface StreakTimelineProps {
+  summary: StreakSummary;
+}
+
+export function StreakTimeline({ summary }: StreakTimelineProps) {
   const [selectedId, setSelectedId] = useState<string | null>(
     summary.items.length > 0 ? summary.items[summary.items.length - 1].id : null,
   );

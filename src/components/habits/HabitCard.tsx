@@ -1,6 +1,5 @@
 import { Activity, Archive, Clock3, Flame, Gauge, Pause, Pencil, Play, RotateCcw, Star, Trash2 } from "lucide-react";
 import type { Habit } from "../../types/habit";
-import { getCategoryById } from "../../data/mockCategories";
 import { formatFrequency, formatGoal } from "../../utils/formatFrequency";
 import { calculateBestStreak, calculateCurrentStreak } from "../../utils/streaks";
 import { calculateAverageLoggedValue, calculateAverageRecordedTime, countCompletedSessions } from "../../utils/habitStats";
@@ -15,6 +14,9 @@ import { HabitIcon3D } from "../ui/HabitIcon3D";
 interface HabitCardProps {
   habit: Habit;
   recentCompletionRate: number;
+  /** Todas las categorías propias (activas y en papelera) — una asociación
+   * con una categoría eliminada debe seguir mostrando su nombre. */
+  categories: { id: string; name: string }[];
   onEdit: () => void;
   onPause?: () => void;
   onReactivate?: () => void;
@@ -50,6 +52,7 @@ function getStatDots(habit: Habit) {
 export function HabitCard({
   habit,
   recentCompletionRate,
+  categories: allCategories,
   onEdit,
   onPause,
   onReactivate,
@@ -58,7 +61,9 @@ export function HabitCard({
   onRestore,
   onHardDelete,
 }: HabitCardProps) {
-  const categories = habit.categoryIds.map(getCategoryById).filter(Boolean);
+  const categories = habit.categoryIds
+    .map((id) => allCategories.find((category) => category.id === id))
+    .filter(Boolean);
   const stats = getStatDots(habit);
   const statusDotClass =
     habit.lifecycleStatus !== "active"

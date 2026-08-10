@@ -1,11 +1,14 @@
 import { useLocation } from "react-router-dom";
-import { Bell, Flame } from "lucide-react";
+import { Bell, Flame, LogOut } from "lucide-react";
 import { primaryNavigation } from "../../routes/navigation";
 import { IconButton } from "../ui/IconButton";
 import { mockUser } from "../../data/mockUser";
+import { useAuth } from "../../hooks/useAuth";
+import { isSupabaseDataSource } from "../../lib/dataSource";
 
 export function TopHeader() {
   const location = useLocation();
+  const { signOut } = useAuth();
   const currentItem = primaryNavigation.find((item) =>
     item.path === "/" ? location.pathname === "/" : location.pathname.startsWith(item.path),
   );
@@ -24,6 +27,16 @@ export function TopHeader() {
       </h1>
 
       <div className="flex items-center gap-2">
+        {isSupabaseDataSource && (
+          <IconButton
+            icon={<LogOut size={18} />}
+            label="Cerrar sesión"
+            variant="secondary"
+            onClick={() => {
+              void signOut();
+            }}
+          />
+        )}
         <IconButton icon={<Bell size={18} />} label="Notificaciones" variant="secondary" />
         <span
           className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-muted text-sm font-semibold text-primary"

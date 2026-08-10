@@ -1,4 +1,4 @@
-import { CalendarClock, Info } from "lucide-react";
+import { CalendarClock, Info, Pause, Pencil, RotateCcw, Trash2, Undo2 } from "lucide-react";
 import type { Goal } from "../../types/goal";
 import { calculatePercentage, clampDisplayPercentage, isGoalExceeded } from "../../utils/calculateProgress";
 import { formatShortDate, daysBetween } from "../../utils/formatDate";
@@ -8,10 +8,18 @@ import { Card } from "../ui/Card";
 import { Badge } from "../ui/Badge";
 import { CircularProgress } from "../ui/CircularProgress";
 import { Sparkline } from "../ui/Sparkline";
+import { IconButton } from "../ui/IconButton";
+import { OverflowMenu, type OverflowMenuItem } from "../ui/OverflowMenu";
 
 interface GoalGeneralHeroProps {
   goal: Goal;
   sectionDescription: string;
+  onEdit?: () => void;
+  onPause?: () => void;
+  onReactivate?: () => void;
+  onDelete?: () => void;
+  onRestore?: () => void;
+  isSaving?: boolean;
 }
 
 function motivationMessage(percentage: number, exceeded: boolean): string {
@@ -21,24 +29,61 @@ function motivationMessage(percentage: number, exceeded: boolean): string {
   return "Aún puedes lograrlo, enfócate en los próximos días.";
 }
 
-export function GoalGeneralHero({ goal, sectionDescription }: GoalGeneralHeroProps) {
+export function GoalGeneralHero({
+  goal,
+  sectionDescription,
+  onEdit,
+  onPause,
+  onReactivate,
+  onDelete,
+  onRestore,
+  isSaving,
+}: GoalGeneralHeroProps) {
   const percentage = calculatePercentage(goal.currentValue, goal.targetValue);
   const displayPercentage = clampDisplayPercentage(percentage);
   const exceeded = isGoalExceeded(goal.currentValue, goal.targetValue);
   const trendDays = Math.min(Math.max(daysBetween(goal.startDate, TODAY) + 1, 2), 30);
   const trend = calculateDailyCompletionTrend(trendDays);
+  const isInTrash = goal.lifecycleStatus === "deleted";
+
+  const menuItems: OverflowMenuItem[] = isInTrash
+    ? [{ label: "Restaurar meta", icon: <Undo2 size={16} />, onClick: onRestore ?? (() => {}) }]
+    : [
+        ...(onPause && goal.lifecycleStatus !== "paused"
+          ? [{ label: "Pausar meta", icon: <Pause size={16} />, onClick: onPause }]
+          : []),
+        ...(onReactivate && goal.lifecycleStatus === "paused"
+          ? [{ label: "Reactivar meta", icon: <RotateCcw size={16} />, onClick: onReactivate }]
+          : []),
+        ...(onDelete ? [{ label: "Eliminar meta", icon: <Trash2 size={16} />, onClick: onDelete, tone: "danger" as const }] : []),
+      ];
 
   return (
-    <Card className="grid grid-cols-1 items-center gap-6 lg:grid-cols-[1.3fr_auto_1fr]">
+    <Card className={`grid grid-cols-1 items-center gap-6 lg:grid-cols-[1.3fr_auto_1fr] ${isSaving ? "opacity-60" : ""}`}>
       <div className="flex flex-col gap-3">
-        <p className="text-xs font-semibold tracking-wide text-primary uppercase">Meta general</p>
+        <div className="flex items-start justify-between gap-2">
+          <p className="text-xs font-semibold tracking-wide text-primary uppercase">Meta general</p>
+          {(onEdit || menuItems.length > 0) && (
+            <div className="flex items-center gap-1">
+              {onEdit && <IconButton icon={<Pencil size={14} />} label="Editar meta" variant="secondary" onClick={onEdit} disabled={isInTrash} />}
+              {menuItems.length > 0 && <OverflowMenu items={menuItems} label={`Más acciones para ${goal.title}`} />}
+            </div>
+          )}
+        </div>
         <div>
           <h3 className="text-xl font-bold text-text-primary">{goal.title}</h3>
           <p className="mt-0.5 text-sm text-text-secondary">{sectionDescription}</p>
         </div>
-        <Badge tone={goal.status === "active" ? "primary" : goal.status === "completed" ? "success" : "danger"} className="w-fit">
-          {goal.status === "active" ? "Activa" : goal.status === "completed" ? "Cumplida" : "Vencida"}
-        </Badge>
+        <div className="flex flex-wrap gap-2">
+          <Badge tone={goal.status === "active" ? "primary" : goal.status === "completed" ? "success" : "danger"} className="w-fit">
+            {goal.status === "active" ? "Activa" : goal.status === "completed" ? "Cumplida" : "Vencida"}
+          </Badge>
+          {goal.lifecycleStatus === "paused" && <Badge tone="warning">Pausada</Badge>}
+          {goal.lifecycleStatus === "deleted" && <Badge tone="neutral">En papelera</Badge>}
+          {goal.progressSource && (
+            <Badge tone="neutral">{goal.progressSource === "habit_logs" ? "Progreso automático" : "Progreso manual"}</Badge>
+          )}
+        </div>
 
         <div className="mt-2 flex flex-wrap gap-6 border-t border-border pt-4">
           <div className="flex items-start gap-2">

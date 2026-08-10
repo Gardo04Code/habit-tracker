@@ -1,6 +1,5 @@
 import { Archive, Pause, Pencil, Play, RotateCcw, Trash2 } from "lucide-react";
 import type { Habit } from "../../types/habit";
-import { getCategoryById } from "../../data/mockCategories";
 import { formatFrequency } from "../../utils/formatFrequency";
 import { Card } from "../ui/Card";
 import { Badge } from "../ui/Badge";
@@ -12,6 +11,7 @@ import { HabitIcon3D } from "../ui/HabitIcon3D";
 interface HabitListRowProps {
   habit: Habit;
   recentCompletionRate: number;
+  categories: { id: string; name: string }[];
   onEdit: () => void;
   onPause?: () => void;
   onReactivate?: () => void;
@@ -24,6 +24,7 @@ interface HabitListRowProps {
 export function HabitListRow({
   habit,
   recentCompletionRate,
+  categories: allCategories,
   onEdit,
   onPause,
   onReactivate,
@@ -32,7 +33,9 @@ export function HabitListRow({
   onRestore,
   onHardDelete,
 }: HabitListRowProps) {
-  const categories = habit.categoryIds.map(getCategoryById).filter(Boolean);
+  const categories = habit.categoryIds
+    .map((id) => allCategories.find((category) => category.id === id))
+    .filter(Boolean);
   const statusDotClass =
     habit.lifecycleStatus !== "active" ? "bg-text-disabled" : recentCompletionRate < 50 ? "bg-warning" : "bg-success";
 
@@ -70,7 +73,7 @@ export function HabitListRow({
         <p className="truncate text-xs text-text-secondary">{formatFrequency(habit)}</p>
       </div>
 
-      <div className="hidden shrink-0 gap-1.5 md:flex">
+      <div className="hidden shrink-0 gap-1.5 lg:flex">
         {categories.map((category) => (
           <Badge key={category!.id} tone="neutral">
             {category!.name}

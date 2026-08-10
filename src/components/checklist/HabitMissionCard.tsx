@@ -25,6 +25,7 @@ interface HabitMissionCardProps {
   onMarkNotApplicable: () => void;
   onReset: () => void;
   onSaveNote: (note: string) => void;
+  isSaving?: boolean;
 }
 
 function StatusDot({ status }: { status: HabitStatus }) {
@@ -98,6 +99,7 @@ export function HabitMissionCard({
   onMarkNotApplicable,
   onReset,
   onSaveNote,
+  isSaving = false,
 }: HabitMissionCardProps) {
   const { habit, status, value, recordedTime, note, isReadOnly } = entry;
   const [isNoteOpen, setIsNoteOpen] = useState(false);
@@ -141,6 +143,13 @@ export function HabitMissionCard({
           <div className="flex items-center gap-2">
             <p className="truncate text-sm font-semibold text-text-primary">{habit.name}</p>
             {isReadOnly && <Lock size={13} className="shrink-0 text-text-disabled" aria-label="Solo lectura" />}
+            {isSaving && (
+              <span
+                className="h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-primary border-t-transparent"
+                role="status"
+                aria-label="Guardando"
+              />
+            )}
           </div>
           <p className="truncate text-xs text-text-secondary">
             Meta: {formatGoal(habit)}

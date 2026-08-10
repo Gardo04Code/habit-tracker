@@ -1,20 +1,50 @@
-import { useState, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import type { Goal } from "../../types/goal";
-import type { GoalDraft } from "../../hooks/useGoalsManager";
-import { browsableHabits } from "../../hooks/useHistoryLogs";
 import { TODAY } from "../../data/referenceDate";
 import { addDays } from "../../utils/formatDate";
+import { isSupabaseDataSource } from "../../lib/dataSource";
 import { Modal } from "../ui/Modal";
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
 import { TextArea } from "../ui/TextArea";
 import { Select } from "../ui/Select";
 
+// Únicos goal_type de hábito con fórmula de progreso automático aprobada
+// hoy (compute_goal_habit_logs_progress, 20260731004632_goal_progress_source.sql)
+// — el mismo criterio que aplica goals.service.ts, replicado aquí solo
+// para dar retroalimentación inmediata; el servidor sigue siendo la
+// autoridad final.
+const SUPPORTED_GOAL_TYPES = new Set(["quantity", "duration", "repetitions"]);
+
+export interface GoalHabitOption {
+  id: string;
+  name: string;
+  goalType: string;
+}
+
+// Forma que emite el formulario al guardar. GoalsPage decide si esto se
+// traduce en un createGoal() (meta nueva) o en updateGoal() +,
+// opcionalmente, updateManualGoalProgress() (edición) — este componente no
+// llama a ningún servicio directamente.
+export interface GoalFormSubmission {
+  title: string;
+  description?: string;
+  targetValue: number;
+  unit: string;
+  startDate: string;
+  endDate: string;
+  progressSource: "manual" | "habit_logs";
+  habitId?: string;
+  currentValue?: number;
+}
+
 interface GoalFormModalProps {
   isOpen: boolean;
   goal?: Goal;
+  habitOptions: GoalHabitOption[];
   onClose: () => void;
-  onSubmit: (draft: GoalDraft) => void;
+  onSubmit: (draft: GoalFormSubmission) => void;
+  isSaving?: boolean;
 }
 
 interface FormState {
@@ -41,21 +71,52 @@ function toFormState(goal?: Goal): FormState {
   };
 }
 
-export function GoalFormModal({ isOpen, goal, onClose, onSubmit }: GoalFormModalProps) {
+export function GoalFormModal({ isOpen, goal, habitOptions, onClose, onSubmit, isSaving }: GoalFormModalProps) {
   if (!isOpen) return null;
 
-  return <GoalFormModalContent goal={goal} onClose={onClose} onSubmit={onSubmit} />;
+  return (
+    <GoalFormModalContent
+      goal={goal}
+      habitOptions={habitOptions}
+      onClose={onClose}
+      onSubmit={onSubmit}
+      isSaving={isSaving}
+    />
+  );
 }
 
 interface GoalFormModalContentProps {
   goal?: Goal;
+  habitOptions: GoalHabitOption[];
   onClose: () => void;
-  onSubmit: (draft: GoalDraft) => void;
+  onSubmit: (draft: GoalFormSubmission) => void;
+  isSaving?: boolean;
 }
 
-function GoalFormModalContent({ goal, onClose, onSubmit }: GoalFormModalContentProps) {
+function GoalFormModalContent({ goal, habitOptions, onClose, onSubmit, isSaving }: GoalFormModalContentProps) {
   const [form, setForm] = useState<FormState>(() => toFormState(goal));
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // progress_source es inmutable tras crear la meta (protect_goal_progress_
+  // source_trg) — en edición de una meta real (progressSource conocido), el
+  // selector "Asociada a" solo puede ofrecer opciones compatibles con el
+  // origen ya fijado: una meta manual no puede pasar a vincularse a un
+  // hábito, y una meta habit_logs no puede quedar sin hábito.
+  const isEditingRealGoal = Boolean(goal && goal.progressSource);
+  const lockedToGeneral = isEditingRealGoal && goal?.progressSource === "manual";
+  const lockedToHabit = isEditingRealGoal && goal?.progressSource === "habit_logs";
+
+  const habitSelectOptions = useMemo(() => {
+    const generalOption = { value: "general", label: "Meta general" };
+    const options = habitOptions.map((habit) => ({ value: habit.id, label: habit.name }));
+    if (lockedToHabit) return options;
+    if (lockedToGeneral) return [generalOption];
+    return [generalOption, ...options];
+  }, [habitOptions, lockedToGeneral, lockedToHabit]);
+
+  const selectedHabit = habitOptions.find((habit) => habit.id === form.habitId);
+  const isHabitLinked = form.habitId !== "general";
+  const habitTypeUnsupported = isHabitLinked && selectedHabit && !SUPPORTED_GOAL_TYPES.has(selectedHabit.goalType);
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -65,11 +126,15 @@ function GoalFormModalContent({ goal, onClose, onSubmit }: GoalFormModalContentP
     const nextErrors: Record<string, string> = {};
     if (!form.title.trim()) nextErrors.title = "El título es obligatorio.";
     if (Number(form.targetValue) <= 0) nextErrors.targetValue = "Ingresa un objetivo mayor a 0.";
-    if (Number(form.currentValue) < 0) nextErrors.currentValue = "El valor actual no puede ser negativo.";
+    if (!isHabitLinked && Number(form.currentValue) < 0) nextErrors.currentValue = "El valor actual no puede ser negativo.";
     if (!form.unit.trim()) nextErrors.unit = "Indica una unidad, por ejemplo días o %.";
     if (!form.startDate) nextErrors.startDate = "La fecha de inicio es obligatoria.";
     if (!form.endDate) nextErrors.endDate = "La fecha límite es obligatoria.";
     else if (form.endDate < form.startDate) nextErrors.endDate = "La fecha límite debe ser posterior a la de inicio.";
+    if (habitTypeUnsupported) {
+      nextErrors.habitId =
+        "Este hábito todavía no admite progreso automático (solo cantidad, duración o repeticiones lo admiten hoy).";
+    }
 
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
@@ -82,14 +147,14 @@ function GoalFormModalContent({ goal, onClose, onSubmit }: GoalFormModalContentP
     onSubmit({
       title: form.title.trim(),
       description: form.description.trim() || undefined,
-      habitId: form.habitId === "general" ? undefined : form.habitId,
       targetValue: Number(form.targetValue),
-      currentValue: Number(form.currentValue),
       unit: form.unit.trim(),
       startDate: form.startDate,
       endDate: form.endDate,
+      progressSource: isHabitLinked ? "habit_logs" : "manual",
+      habitId: isHabitLinked ? form.habitId : undefined,
+      currentValue: isHabitLinked ? undefined : Number(form.currentValue),
     });
-    onClose();
   }
 
   return (
@@ -100,10 +165,10 @@ function GoalFormModalContent({ goal, onClose, onSubmit }: GoalFormModalContentP
       description="Define un objetivo medible general o asociado a un hábito."
       footer={
         <>
-          <Button variant="ghost" onClick={onClose}>
+          <Button variant="ghost" onClick={onClose} disabled={isSaving}>
             Cancelar
           </Button>
-          <Button variant="primary" onClick={handleSubmit}>
+          <Button variant="primary" onClick={handleSubmit} isLoading={isSaving}>
             {goal ? "Guardar cambios" : "Crear meta"}
           </Button>
         </>
@@ -120,19 +185,34 @@ function GoalFormModalContent({ goal, onClose, onSubmit }: GoalFormModalContentP
           label="Asociada a"
           value={form.habitId}
           onChange={(event) => update("habitId", event.target.value)}
-          options={[
-            { value: "general", label: "Meta general" },
-            ...browsableHabits.map((habit) => ({ value: habit.id, label: habit.name })),
-          ]}
+          options={habitSelectOptions}
+          disabled={lockedToGeneral || lockedToHabit}
+          hint={
+            lockedToHabit
+              ? "El origen del progreso de una meta no se puede cambiar después de crearla — solo puedes elegir otro hábito compatible."
+              : lockedToGeneral
+                ? "Esta meta es manual — el origen de su progreso no se puede cambiar después de crearla."
+                : undefined
+          }
         />
+        {errors.habitId && <p className="-mt-2 text-xs text-danger">{errors.habitId}</p>}
+        {isHabitLinked && (
+          <p className="-mt-2 text-xs text-text-secondary">
+            {isSupabaseDataSource
+              ? "El progreso de esta meta se calcula automáticamente desde tus registros diarios de ese hábito."
+              : "En modo demo, el progreso de metas vinculadas a un hábito también se calcula automáticamente."}
+          </p>
+        )}
         <div className="grid grid-cols-2 gap-3">
           <Input
             label="Valor actual"
             type="number"
             min={0}
-            value={form.currentValue}
+            value={isHabitLinked ? "" : form.currentValue}
             onChange={(event) => update("currentValue", event.target.value)}
             error={errors.currentValue}
+            disabled={isHabitLinked}
+            placeholder={isHabitLinked ? "Automático" : undefined}
           />
           <Input
             label="Objetivo"
