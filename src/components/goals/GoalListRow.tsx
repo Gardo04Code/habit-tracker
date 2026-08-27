@@ -43,6 +43,11 @@ export function GoalListRow({ goal, habit, onEdit, onPause, onReactivate, onDele
   const exceeded = isGoalExceeded(goal.currentValue, goal.targetValue);
   const statusMeta = STATUS_META[goal.status];
   const lifecycleMeta = goal.lifecycleStatus && goal.lifecycleStatus !== "active" ? LIFECYCLE_META[goal.lifecycleStatus] : undefined;
+  // BUG-PROD-007: goal.status (logro) y goal.lifecycleStatus (ciclo de
+  // vida) son ejes independientes — mostrar el badge de logro "Activa" a
+  // la vez que "Pausada"/"En papelera" es engañoso (misma palabra para dos
+  // cosas distintas). "Cumplida"/"Vencida" sí se muestran siempre.
+  const showStatusBadge = !(goal.status === "active" && lifecycleMeta);
   const isInTrash = goal.lifecycleStatus === "deleted";
 
   const menuItems: OverflowMenuItem[] = isInTrash
@@ -107,7 +112,7 @@ export function GoalListRow({ goal, habit, onEdit, onPause, onReactivate, onDele
             {formatShortDate(goal.endDate)}
           </span>
         </span>
-        <Badge tone={statusMeta.tone}>{statusMeta.label}</Badge>
+        {showStatusBadge && <Badge tone={statusMeta.tone}>{statusMeta.label}</Badge>}
         {lifecycleMeta && <Badge tone={lifecycleMeta.tone}>{lifecycleMeta.label}</Badge>}
         <div className="flex items-center gap-1.5">
           <IconButton icon={<Pencil size={15} />} label="Editar meta" variant="secondary" onClick={onEdit} disabled={isInTrash} />

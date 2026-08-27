@@ -1,8 +1,6 @@
 import { Activity, Archive, Clock3, Flame, Gauge, Pause, Pencil, Play, RotateCcw, Star, Trash2 } from "lucide-react";
 import type { Habit } from "../../types/habit";
 import { formatFrequency, formatGoal } from "../../utils/formatFrequency";
-import { calculateBestStreak, calculateCurrentStreak } from "../../utils/streaks";
-import { calculateAverageLoggedValue, calculateAverageRecordedTime, countCompletedSessions } from "../../utils/habitStats";
 import { Card } from "../ui/Card";
 import { Badge } from "../ui/Badge";
 import { ProgressBar } from "../ui/ProgressBar";
@@ -14,6 +12,18 @@ import { HabitIcon3D } from "../ui/HabitIcon3D";
 interface HabitCardProps {
   habit: Habit;
   recentCompletionRate: number;
+  // BUG-PROD-006: estos cuatro valores solían calcularse aquí mismo llamando
+  // directamente a utils/streaks.ts y utils/habitStats.ts — ambos leen
+  // siempre data/mockHabitLogs.ts, sin ninguna rama por fuente de datos, así
+  // que en modo Supabase devolvían 0/— para cualquier hábito real (mismatch
+  // ya documentado como "arriesgaría ese módulo" en useStatistics.ts, ahora
+  // resuelto). El origen (mock estático o Supabase real) ya lo decide
+  // HabitsPage.tsx, la única responsabilidad de esta tarjeta es mostrarlos.
+  currentStreak: number;
+  bestStreak: number;
+  completedSessions: number;
+  averageLoggedValue: number | null;
+  averageRecordedTime: string | null;
   /** Todas las categorías propias (activas y en papelera) — una asociación
    * con una categoría eliminada debe seguir mostrando su nombre. */
   categories: { id: string; name: string }[];
@@ -28,30 +38,44 @@ interface HabitCardProps {
 
 const VALUE_GOAL_TYPES = ["quantity", "duration", "repetitions", "accumulated_days"];
 
-function getStatDots(habit: Habit) {
+function getStatDots(
+  habit: Habit,
+  currentStreak: number,
+  bestStreak: number,
+  completedSessions: number,
+  averageLoggedValue: number | null,
+  averageRecordedTime: string | null,
+) {
   if (VALUE_GOAL_TYPES.includes(habit.goalType)) {
-    const avg = calculateAverageLoggedValue(habit.id);
     return [
-      { icon: Gauge, label: "Promedio", value: avg !== null ? `${avg} ${habit.targetUnit ?? ""}`.trim() : "—" },
-      { icon: Star, label: "Mejor racha", value: `${calculateBestStreak(habit)} días` },
+      {
+        icon: Gauge,
+        label: "Promedio",
+        value: averageLoggedValue !== null ? `${averageLoggedValue} ${habit.targetUnit ?? ""}`.trim() : "—",
+      },
+      { icon: Star, label: "Mejor racha", value: `${bestStreak} días` },
     ];
   }
   if (habit.goalType === "deadline") {
-    const avgTime = calculateAverageRecordedTime(habit.id);
     return [
-      { icon: Star, label: "Mejor racha", value: `${calculateBestStreak(habit)} días` },
-      { icon: Clock3, label: "Promedio", value: avgTime ?? "—" },
+      { icon: Star, label: "Mejor racha", value: `${bestStreak} días` },
+      { icon: Clock3, label: "Promedio", value: averageRecordedTime ?? "—" },
     ];
   }
   return [
-    { icon: Flame, label: "Racha actual", value: `${calculateCurrentStreak(habit)} días` },
-    { icon: Activity, label: "Sesiones", value: `${countCompletedSessions(habit.id)}` },
+    { icon: Flame, label: "Racha actual", value: `${currentStreak} días` },
+    { icon: Activity, label: "Sesiones", value: `${completedSessions}` },
   ];
 }
 
 export function HabitCard({
   habit,
   recentCompletionRate,
+  currentStreak,
+  bestStreak,
+  completedSessions,
+  averageLoggedValue,
+  averageRecordedTime,
   categories: allCategories,
   onEdit,
   onPause,
@@ -64,7 +88,7 @@ export function HabitCard({
   const categories = habit.categoryIds
     .map((id) => allCategories.find((category) => category.id === id))
     .filter(Boolean);
-  const stats = getStatDots(habit);
+  const stats = getStatDots(habit, currentStreak, bestStreak, completedSessions, averageLoggedValue, averageRecordedTime);
   const statusDotClass =
     habit.lifecycleStatus !== "active"
       ? "bg-text-disabled"

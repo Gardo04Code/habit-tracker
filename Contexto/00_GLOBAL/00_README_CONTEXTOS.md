@@ -28,6 +28,9 @@ en una tarea de integración.
     variables.
 -   `02_DEVELOPMENT/05_TESTING_QA`: E2E, seguridad, regresión, bugs y
     retests.
--   `03_DEPLOYMENT`: reservado para la fase final.
+-   `03_DEPLOYMENT`: fase final --- Habit Tracker ya está desplegado en
+    Production (`https://codgoli.com/habitos/`).
+-   `04_QA`: handoff Deployment → QA/regresión/automatización.
+    Punto de entrada: `04_QA/01_PRODUCTION_SMOKE_CONTEXT.md`.
 
 Los TXT son prompts cortos de arranque de sesión.

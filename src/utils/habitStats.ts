@@ -5,6 +5,7 @@ import { addDays } from "./formatDate";
 import { calculateCurrentStreak } from "./streaks";
 import { calculateRecentCompletionRate } from "./recentCompletion";
 import { calculateDayCompletionPercentage } from "./streakTimeline";
+import { isSupabaseDataSource } from "../lib/dataSource";
 
 const ACTIVE_RISK_THRESHOLD = 50;
 
@@ -75,7 +76,11 @@ export function calculateHabitCountTrend(habits: Habit[], points = 8): number[] 
 
   const createdTimestamps = habits.map((habit) => new Date(habit.createdAt).getTime()).sort((a, b) => a - b);
   const start = createdTimestamps[0];
-  const end = new Date(`${TODAY}T00:00:00`).getTime();
+  // BUG-PROD-006 (misma familia): esta serie SÍ recibe habits reales, pero
+  // usaba el ancla fija de los mocks como fecha final incluso en modo
+  // Supabase. En modo Supabase, el extremo derecho de la curva debe ser la
+  // fecha real de hoy, igual que ya hace useDashboard.ts/useStatistics.ts.
+  const end = isSupabaseDataSource ? Date.now() : new Date(`${TODAY}T00:00:00`).getTime();
   const span = Math.max(1, end - start);
 
   return Array.from({ length: points }, (_, index) => {

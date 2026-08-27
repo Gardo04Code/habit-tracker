@@ -75,9 +75,18 @@ export function GoalGeneralHero({
           <p className="mt-0.5 text-sm text-text-secondary">{sectionDescription}</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Badge tone={goal.status === "active" ? "primary" : goal.status === "completed" ? "success" : "danger"} className="w-fit">
-            {goal.status === "active" ? "Activa" : goal.status === "completed" ? "Cumplida" : "Vencida"}
-          </Badge>
+          {/* BUG-PROD-007: goal.status (logro: active/completed/expired) y
+              goal.lifecycleStatus (ciclo de vida: active/paused/deleted) son
+              ejes independientes (20260731004632_goal_progress_source.sql) —
+              mostrar el badge de logro "Activa" a la vez que "Pausada"/"En
+              papelera" es engañoso porque comparten la misma palabra para
+              dos cosas distintas. "Cumplida"/"Vencida" sí son información
+              real independiente del lifecycle y siempre se muestran. */}
+          {!(goal.status === "active" && goal.lifecycleStatus !== "active") && (
+            <Badge tone={goal.status === "active" ? "primary" : goal.status === "completed" ? "success" : "danger"} className="w-fit">
+              {goal.status === "active" ? "Activa" : goal.status === "completed" ? "Cumplida" : "Vencida"}
+            </Badge>
+          )}
           {goal.lifecycleStatus === "paused" && <Badge tone="warning">Pausada</Badge>}
           {goal.lifecycleStatus === "deleted" && <Badge tone="neutral">En papelera</Badge>}
           {goal.progressSource && (

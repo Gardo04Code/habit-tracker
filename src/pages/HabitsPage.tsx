@@ -2,18 +2,25 @@ import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { AlertTriangle, ChevronDown, Flame, LayoutGrid, List, Plus, Repeat, Target } from "lucide-react";
 import type { Habit, HabitLifecycleStatus } from "../types/habit";
+import type { HabitLog as DbHabitLogRow } from "../types/entities";
 import { useHabits, type HabitDraft } from "../hooks/useHabits";
 import { useCategories } from "../hooks/useCategories";
+import { useStatistics, computeCurrentStreakReal, computeBestStreakReal } from "../hooks/useStatistics";
 import { isSupabaseDataSource } from "../lib/dataSource";
+import { addDays, toDateOnly } from "../utils/formatDate";
+import { TODAY as MOCK_TODAY } from "../data/referenceDate";
 import { calculateRecentCompletionRate } from "../utils/recentCompletion";
 import {
   calculateAverageCompletion,
+  calculateAverageLoggedValue,
+  calculateAverageRecordedTime,
   calculateBestActiveStreak,
   calculateDailyCompletionTrend,
   calculateHabitCountTrend,
+  countCompletedSessions,
   countHabitsAtRisk,
 } from "../utils/habitStats";
-import { calculateCurrentStreak } from "../utils/streaks";
+import { calculateBestStreak, calculateCurrentStreak } from "../utils/streaks";
 import { SectionHeader } from "../components/ui/SectionHeader";
 import { Button } from "../components/ui/Button";
 import { EmptyState } from "../components/ui/EmptyState";
@@ -33,6 +40,19 @@ const SORT_OPTIONS: { value: SortOption; label: string }[] = [
   { value: "completion", label: "Mayor cumplimiento" },
   { value: "streak", label: "Racha más larga" },
 ];
+
+// Mismo patrón ya usado en useDashboard.ts/useStatistics.ts/
+// DailyChecklistPage.tsx: MOCK_TODAY solo debe regir en modo mock.
+const TODAY = isSupabaseDataSource ? toDateOnly(new Date()) : MOCK_TODAY;
+
+interface HabitStatsEntry {
+  recentCompletionRate: number;
+  currentStreak: number;
+  bestStreak: number;
+  completedSessions: number;
+  averageLoggedValue: number | null;
+  averageRecordedTime: string | null;
+}
 
 export function HabitsPage() {
   const {
@@ -55,6 +75,98 @@ export function HabitsPage() {
     [allCategories],
   );
 
+  // BUG-PROD-006: "Mis hábitos" calculaba racha/cumplimiento/sesiones vía
+  // utils/streaks.ts y utils/habitStats.ts, que SIEMPRE leen
+  // data/mockHabitLogs.ts sin ninguna rama por fuente de datos — en
+  // Production (modo Supabase) esto producía 0% de cumplimiento, racha 0 y
+  // 0 sesiones para hábitos con logs reales, mientras Checklist/Historial/
+  // Estadísticas/Dashboard sí mostraban lo correcto (ya son data-source-
+  // aware). useStatistics() solo admite period 7/30/90 (StatisticsPeriod) —
+  // se pide 30 (el fetch de dbLogs/logsByHabit trae SIEMPRE el historial
+  // completo, sin recortar por period; solo period.trend/dailyRates lo usan,
+  // y aquí trend se reutiliza tal cual para el sparkline decorativo del KPI,
+  // sin que eso afecte la ventana real de 14 días de "recentCompletionRate",
+  // que este archivo calcula directamente sobre dbLogs más abajo). Se
+  // reutiliza useStatistics() (misma fuente ya validada por Dashboard/
+  // Estadísticas) en vez de reimplementar el fetch. En modo mock,
+  // useStatistics()/computeCurrentStreakReal/computeBestStreakReal no se
+  // usan para el resultado final — se ignoran a propósito para no cambiar
+  // el comportamiento mock ya validado.
+  const period30Stats = useStatistics(30);
+
+  const habitStatsMap = useMemo(() => {
+    const map = new Map<string, HabitStatsEntry>();
+
+    if (!isSupabaseDataSource) {
+      habits.forEach((habit) => {
+        map.set(habit.id, {
+          recentCompletionRate: calculateRecentCompletionRate(habit.id),
+          currentStreak: calculateCurrentStreak(habit),
+          bestStreak: calculateBestStreak(habit),
+          completedSessions: countCompletedSessions(habit.id),
+          averageLoggedValue: calculateAverageLoggedValue(habit.id),
+          averageRecordedTime: calculateAverageRecordedTime(habit.id),
+        });
+      });
+      return map;
+    }
+
+    const since14 = addDays(TODAY, -13);
+    const since30 = addDays(TODAY, -29);
+
+    // Misma fórmula que dayRate() (useStatistics.ts): completed=1,
+    // partial=0.5, not_applicable excluido de ambos, 0% (nunca NaN) sin
+    // registros calificados — calculada aquí directamente sobre una
+    // ventana real de 14 días, independiente del `period` pedido arriba.
+    function completionRateInWindow(rows: DbHabitLogRow[]): number {
+      const applicable = rows.filter((row) => row.status !== "not_applicable");
+      if (applicable.length === 0) return 0;
+      const weighted = applicable.reduce((sum, row) => {
+        if (row.status === "completed") return sum + 1;
+        if (row.status === "partial") return sum + 0.5;
+        return sum;
+      }, 0);
+      return Math.round((weighted / applicable.length) * 100);
+    }
+
+    habits.forEach((habit) => {
+      const habitLogs = period30Stats.dbLogs.filter((row) => row.habit_id === habit.id);
+      const logs14 = habitLogs.filter((row) => row.date >= since14 && row.date <= TODAY);
+
+      const valuesInWindow = logs14.filter((row) => row.value !== null);
+      const averageLoggedValue =
+        valuesInWindow.length > 0
+          ? Math.round((valuesInWindow.reduce((sum, row) => sum + (row.value ?? 0), 0) / valuesInWindow.length) * 10) / 10
+          : null;
+
+      const timesInWindow = habitLogs.filter(
+        (row) => row.date >= since30 && row.date <= TODAY && row.recorded_time,
+      );
+      let averageRecordedTime: string | null = null;
+      if (timesInWindow.length > 0) {
+        const totalMinutes = timesInWindow.reduce((sum, row) => {
+          const [hours, minutes] = row.recorded_time!.split(":").map(Number);
+          return sum + hours * 60 + minutes;
+        }, 0);
+        const avgMinutes = Math.round(totalMinutes / timesInWindow.length);
+        const hh = Math.floor(avgMinutes / 60) % 24;
+        const mm = avgMinutes % 60;
+        averageRecordedTime = `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+      }
+
+      map.set(habit.id, {
+        recentCompletionRate: completionRateInWindow(logs14),
+        currentStreak: computeCurrentStreakReal(habit, period30Stats.logsByHabit, TODAY),
+        bestStreak: computeBestStreakReal(habit, period30Stats.logsByHabit, TODAY),
+        completedSessions: habitLogs.filter((row) => row.status === "completed").length,
+        averageLoggedValue,
+        averageRecordedTime,
+      });
+    });
+
+    return map;
+  }, [habits, period30Stats.dbLogs, period30Stats.logsByHabit]);
+
   const [activeTab, setActiveTab] = useState<HabitLifecycleStatus>("active");
   const [search, setSearch] = useState("");
   const [categoryId, setCategoryId] = useState("all");
@@ -75,16 +187,37 @@ export function HabitsPage() {
 
   const kpis = useMemo(() => {
     const activeHabits = habits.filter((h) => h.lifecycleStatus === "active");
+
+    if (!isSupabaseDataSource) {
+      return {
+        total: habits.length,
+        totalTrend: calculateHabitCountTrend(habits),
+        bestStreak: calculateBestActiveStreak(habits),
+        completionTrend: calculateDailyCompletionTrend(),
+        averageCompletion: calculateAverageCompletion(habits),
+        atRisk: countHabitsAtRisk(habits),
+        activeCount: activeHabits.length,
+      };
+    }
+
+    const activeStats = activeHabits.map((habit) => habitStatsMap.get(habit.id));
+    const bestStreak = activeStats.length > 0 ? Math.max(0, ...activeStats.map((s) => s?.currentStreak ?? 0)) : 0;
+    const averageCompletion =
+      activeStats.length > 0
+        ? Math.round(activeStats.reduce((sum, s) => sum + (s?.recentCompletionRate ?? 0), 0) / activeStats.length)
+        : 0;
+    const atRisk = activeStats.filter((s) => (s?.recentCompletionRate ?? 0) < 50).length;
+
     return {
       total: habits.length,
       totalTrend: calculateHabitCountTrend(habits),
-      bestStreak: calculateBestActiveStreak(habits),
-      completionTrend: calculateDailyCompletionTrend(),
-      averageCompletion: calculateAverageCompletion(habits),
-      atRisk: countHabitsAtRisk(habits),
+      bestStreak,
+      completionTrend: period30Stats.trend,
+      averageCompletion,
+      atRisk,
       activeCount: activeHabits.length,
     };
-  }, [habits]);
+  }, [habits, habitStatsMap, period30Stats.trend]);
 
   const visibleHabits = useMemo(() => {
     const filtered = habits.filter((habit) => {
@@ -96,12 +229,16 @@ export function HabitsPage() {
 
     const sorted = [...filtered];
     if (sort === "name") sorted.sort((a, b) => a.name.localeCompare(b.name));
-    else if (sort === "completion") sorted.sort((a, b) => calculateRecentCompletionRate(b.id) - calculateRecentCompletionRate(a.id));
-    else if (sort === "streak") sorted.sort((a, b) => calculateCurrentStreak(b) - calculateCurrentStreak(a));
+    else if (sort === "completion")
+      sorted.sort(
+        (a, b) => (habitStatsMap.get(b.id)?.recentCompletionRate ?? 0) - (habitStatsMap.get(a.id)?.recentCompletionRate ?? 0),
+      );
+    else if (sort === "streak")
+      sorted.sort((a, b) => (habitStatsMap.get(b.id)?.currentStreak ?? 0) - (habitStatsMap.get(a.id)?.currentStreak ?? 0));
     else sorted.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
 
     return sorted;
-  }, [habits, activeTab, search, categoryId, sort]);
+  }, [habits, activeTab, search, categoryId, sort, habitStatsMap]);
 
   async function handleFormSubmit(draft: HabitDraft) {
     if (formHabit && formHabit !== "new") {
@@ -252,10 +389,16 @@ export function HabitsPage() {
           animate="show"
         >
           {visibleHabits.map((habit) => {
+            const stat = habitStatsMap.get(habit.id);
             const cardProps = {
               habit,
               categories: allCategories,
-              recentCompletionRate: calculateRecentCompletionRate(habit.id),
+              recentCompletionRate: stat?.recentCompletionRate ?? 0,
+              currentStreak: stat?.currentStreak ?? 0,
+              bestStreak: stat?.bestStreak ?? 0,
+              completedSessions: stat?.completedSessions ?? 0,
+              averageLoggedValue: stat?.averageLoggedValue ?? null,
+              averageRecordedTime: stat?.averageRecordedTime ?? null,
               onEdit: () => setFormHabit(habit),
               onPause: activeTab === "active" ? () => pauseHabit(habit.id) : undefined,
               onReactivate:

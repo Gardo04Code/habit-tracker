@@ -1,0 +1,17 @@
+# Habit Tracker — SPA fallback, aislado a este directorio.
+#
+# Este archivo debe vivir en <codgoli-root>/habitos/.htaccess.
+# NUNCA copiarlo a la raíz del sitio Codgoli.
+#
+# RewriteBase fija el alcance a /habitos/: cualquier solicitud dentro
+# de esta carpeta que no corresponda a un archivo o directorio real
+# (JS, CSS, favicon, etc.) cae hacia index.html, permitiendo que
+# React Router resuelva la ruta en el cliente (recarga directa de
+# /habitos/checklist, /habitos/habits, etc. sin 404).
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /habitos/
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule . /habitos/index.html [L]
+</IfModule>

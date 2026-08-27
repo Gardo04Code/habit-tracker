@@ -44,7 +44,13 @@ export function Modal({ isOpen, onClose, title, description, children, footer }:
             role="dialog"
             aria-modal="true"
             aria-labelledby="modal-title"
-            className="glass-surface shadow-elevation-3 relative flex max-h-[90vh] w-full flex-col rounded-t-2xl bg-surface-elevated sm:max-w-lg sm:rounded-2xl"
+            // BUG-PROD-001: glass-surface (60% opacidad) compartía la misma
+            // superficie translúcida que usan overlays efímeros (menús,
+            // tooltips, TopHeader) — apilada sobre el backdrop bg-black/60,
+            // dejaba el formulario del modal difícil de leer. glass-surface-modal
+            // conserva el mismo blur/borde "premium" con una superficie casi
+            // opaca, pensada para diálogos de formulario.
+            className="glass-surface-modal shadow-elevation-3 relative flex max-h-[90vh] w-full flex-col rounded-t-2xl sm:max-w-lg sm:rounded-2xl"
             initial={{ opacity: 0, scale: 0.96, y: 16 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.97, y: 8 }}

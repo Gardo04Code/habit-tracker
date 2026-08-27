@@ -25,14 +25,21 @@ export function Toggle({ label, checked, onChange, hint, disabled, icon, tone = 
   const id = useId();
 
   return (
+    // BUG-PROD-003: sin min-w-0 en el bloque izquierdo, el min-width:auto
+    // por defecto de flexbox impedía que el texto (label/hint largos, p. ej.
+    // "Permitir registros parciales") se ajustara al espacio disponible —
+    // la fila entera desbordaba y empujaba el switch fuera del contenedor
+    // visible en viewports angostos (320-375px). min-w-0 en ambos niveles
+    // deja que el texto se ajuste (wrap) dentro del espacio real en vez de
+    // forzar el desborde; el switch conserva shrink-0 para no comprimirse.
     <div className="flex items-center justify-between gap-4 py-3">
-      <div className="flex items-center gap-3">
+      <div className="flex min-w-0 flex-1 items-center gap-3">
         {icon && (
           <span className={clsx("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg", TONE_CLASSES[tone])} aria-hidden="true">
             {icon}
           </span>
         )}
-        <div>
+        <div className="min-w-0">
           <label htmlFor={id} className="text-sm font-medium text-text-primary">
             {label}
           </label>
@@ -55,7 +62,7 @@ export function Toggle({ label, checked, onChange, hint, disabled, icon, tone = 
       >
         <span
           className={clsx(
-            "absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform",
+            "absolute left-0 top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform",
             checked ? "translate-x-[22px]" : "translate-x-0.5",
           )}
         />

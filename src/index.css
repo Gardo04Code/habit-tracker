@@ -37,6 +37,12 @@
   --glass-bg: rgba(19, 27, 44, 0.6);
   --glass-border: rgba(148, 163, 184, 0.16);
   --glass-blur: 20px;
+  /* BUG-PROD-001: --glass-bg (60% opacidad) es apropiado para overlays
+     efímeros (TopHeader, menús, tooltips) pero deja los modales de
+     formulario difíciles de leer sobre el backdrop. --glass-bg-modal
+     conserva el mismo blur/borde ("premium") con una superficie casi
+     opaca, solo para diálogos. */
+  --glass-bg-modal: rgba(19, 27, 44, 0.97);
 
   --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.5);
   --shadow-2: 0 10px 24px -8px rgba(0, 0, 0, 0.55);
@@ -73,6 +79,7 @@
   --glass-bg: rgba(255, 255, 255, 0.6);
   --glass-border: rgba(15, 23, 42, 0.08);
   --glass-blur: 20px;
+  --glass-bg-modal: rgba(255, 255, 255, 0.97);
 
   --shadow-1: 0 1px 2px rgba(15, 23, 42, 0.06);
   --shadow-2: 0 10px 24px -8px rgba(15, 23, 42, 0.12);
@@ -171,6 +178,17 @@
 
   .glass-surface {
     background: var(--glass-bg);
+    backdrop-filter: blur(var(--glass-blur)) saturate(160%);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%);
+    border: 1px solid var(--glass-border);
+  }
+
+  /* BUG-PROD-001: misma "sensación" (blur, saturación, borde) que
+     .glass-surface, pero con una superficie casi opaca — para diálogos
+     donde el contenido debe leerse con claridad, no para overlays
+     efímeros. */
+  .glass-surface-modal {
+    background: var(--glass-bg-modal);
     backdrop-filter: blur(var(--glass-blur)) saturate(160%);
     -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%);
     border: 1px solid var(--glass-border);

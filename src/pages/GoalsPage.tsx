@@ -59,7 +59,7 @@ export function GoalsPage() {
     () =>
       habits
         .filter((habit) => habit.lifecycleStatus === "active")
-        .map((habit) => ({ id: habit.id, name: habit.name, goalType: habit.goalType })),
+        .map((habit) => ({ id: habit.id, name: habit.name, goalType: habit.goalType, unit: habit.targetUnit })),
     [habits],
   );
 
@@ -73,9 +73,19 @@ export function GoalsPage() {
   const generalGoals = lifecycleGoals.filter((goal) => !goal.habitId);
   const habitGoals = lifecycleGoals.filter((goal) => goal.habitId);
 
+  // BUG-PROD-007: goal.status (logro) y goal.lifecycleStatus (ciclo de
+  // vida) son ejes independientes — una meta pausada/en papelera puede
+  // seguir teniendo status = "active" (no se completó ni venció), pero
+  // contarla bajo el sub-filtro "Activas" mientras se está viendo la
+  // pestaña "Pausadas"/"Papelera" es engañoso: la misma palabra "Activa"
+  // pasaría a significar dos cosas distintas en la misma pantalla. Una
+  // meta pausada/en papelera nunca debe contarse ni listarse como
+  // "Activa" aquí — Cumplida/Vencida sí son información real,
+  // independiente del lifecycle, y se conservan.
   const counts = useMemo(() => {
     const base: Record<GoalStatusFilter, number> = { all: habitGoals.length, active: 0, completed: 0, expired: 0 };
     habitGoals.forEach((goal) => {
+      if (goal.status === "active" && goal.lifecycleStatus !== "active") return;
       base[goal.status] += 1;
     });
     return base;
@@ -83,7 +93,11 @@ export function GoalsPage() {
 
   const lifecycleCounts = { active: activeGoals.length, paused: pausedGoals.length, deleted: deletedGoals.length };
 
-  const visibleHabitGoals = habitGoals.filter((goal) => statusFilter === "all" || goal.status === statusFilter);
+  const visibleHabitGoals = habitGoals.filter((goal) => {
+    if (statusFilter === "all") return true;
+    if (statusFilter === "active") return goal.status === "active" && goal.lifecycleStatus === "active";
+    return goal.status === statusFilter;
+  });
 
   const listVariants = { hidden: {}, show: { transition: { staggerChildren: 0.04 } } };
   const rowVariants = { hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0 } };

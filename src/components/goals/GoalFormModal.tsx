@@ -1,6 +1,6 @@
 import { useMemo, useState, type FormEvent } from "react";
 import type { Goal } from "../../types/goal";
-import { TODAY } from "../../data/referenceDate";
+import { getFormDefaultDate } from "../../data/referenceDate";
 import { addDays } from "../../utils/formatDate";
 import { isSupabaseDataSource } from "../../lib/dataSource";
 import { Modal } from "../ui/Modal";
@@ -20,6 +20,7 @@ export interface GoalHabitOption {
   id: string;
   name: string;
   goalType: string;
+  unit?: string;
 }
 
 // Forma que emite el formulario al guardar. GoalsPage decide si esto se
@@ -66,8 +67,8 @@ function toFormState(goal?: Goal): FormState {
     targetValue: goal?.targetValue.toString() ?? "",
     currentValue: goal?.currentValue.toString() ?? "0",
     unit: goal?.unit ?? "",
-    startDate: goal?.startDate ?? TODAY,
-    endDate: goal?.endDate ?? addDays(TODAY, 30),
+    startDate: goal?.startDate ?? getFormDefaultDate(),
+    endDate: goal?.endDate ?? addDays(getFormDefaultDate(), 30),
   };
 }
 
@@ -106,17 +107,52 @@ function GoalFormModalContent({ goal, habitOptions, onClose, onSubmit, isSaving 
   const lockedToGeneral = isEditingRealGoal && goal?.progressSource === "manual";
   const lockedToHabit = isEditingRealGoal && goal?.progressSource === "habit_logs";
 
+  // Al editar una meta ya vinculada a un hábito (lockedToHabit), el
+  // selector solo debe ofrecer hábitos "compatibles" — con una fórmula de
+  // progreso automático aprobada (SUPPORTED_GOAL_TYPES) — para no permitir
+  // elegir un reemplazo que el servidor rechazaría igualmente al guardar.
+  const compatibleHabitOptions = useMemo(
+    () => habitOptions.filter((habit) => SUPPORTED_GOAL_TYPES.has(habit.goalType)),
+    [habitOptions],
+  );
+
   const habitSelectOptions = useMemo(() => {
     const generalOption = { value: "general", label: "Meta general" };
-    const options = habitOptions.map((habit) => ({ value: habit.id, label: habit.name }));
-    if (lockedToHabit) return options;
+    if (lockedToHabit) {
+      return compatibleHabitOptions.map((habit) => ({ value: habit.id, label: habit.name }));
+    }
     if (lockedToGeneral) return [generalOption];
+    const options = habitOptions.map((habit) => ({ value: habit.id, label: habit.name }));
     return [generalOption, ...options];
-  }, [habitOptions, lockedToGeneral, lockedToHabit]);
+  }, [habitOptions, compatibleHabitOptions, lockedToGeneral, lockedToHabit]);
+
+  // BUG-PROD-008: el selector quedaba completamente disabled para
+  // lockedToHabit, impidiendo elegir cualquier alternativa aunque
+  // habitSelectOptions ya la calculara correctamente. Solo debe
+  // deshabilitarse cuando no existe NINGÚN otro hábito compatible al que
+  // cambiar (además del ya vinculado) — lockedToGeneral sigue disabled
+  // siempre, porque una meta manual nunca puede vincularse a un hábito.
+  const hasCompatibleAlternative =
+    lockedToHabit && compatibleHabitOptions.some((habit) => habit.id !== form.habitId);
+  const habitSelectDisabled = lockedToGeneral || (lockedToHabit && !hasCompatibleAlternative);
 
   const selectedHabit = habitOptions.find((habit) => habit.id === form.habitId);
   const isHabitLinked = form.habitId !== "general";
   const habitTypeUnsupported = isHabitLinked && selectedHabit && !SUPPORTED_GOAL_TYPES.has(selectedHabit.goalType);
+
+  // BUG-PROD-005: current_value para progress_source = 'habit_logs' se
+  // define en compute_goal_habit_logs_progress() (20260731004632_goal_progress_source.sql)
+  // como la SUMA de habit_logs.value en la unidad propia del hábito — el
+  // backend nunca conoció ni usó goals.unit para ese cálculo. Antes de este
+  // fix, "Unidad" era texto libre sin relación con esa unidad real (el
+  // Product Owner podía escribir "días" para una meta ligada a un hábito de
+  // "vasos"), lo que producía lecturas sin sentido ("8 de 7 días") aunque el
+  // cálculo del servidor fuera matemáticamente correcto. La unidad mostrada
+  // ahora se deriva del hábito vinculado, para que siempre coincida con lo
+  // que realmente se está sumando.
+  const habitUnit = isHabitLinked ? selectedHabit?.unit?.trim() || undefined : undefined;
+  const unitLocked = isHabitLinked && Boolean(habitUnit);
+  const effectiveUnit = unitLocked ? habitUnit! : form.unit;
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -127,7 +163,7 @@ function GoalFormModalContent({ goal, habitOptions, onClose, onSubmit, isSaving 
     if (!form.title.trim()) nextErrors.title = "El título es obligatorio.";
     if (Number(form.targetValue) <= 0) nextErrors.targetValue = "Ingresa un objetivo mayor a 0.";
     if (!isHabitLinked && Number(form.currentValue) < 0) nextErrors.currentValue = "El valor actual no puede ser negativo.";
-    if (!form.unit.trim()) nextErrors.unit = "Indica una unidad, por ejemplo días o %.";
+    if (!effectiveUnit.trim()) nextErrors.unit = "Indica una unidad, por ejemplo días o %.";
     if (!form.startDate) nextErrors.startDate = "La fecha de inicio es obligatoria.";
     if (!form.endDate) nextErrors.endDate = "La fecha límite es obligatoria.";
     else if (form.endDate < form.startDate) nextErrors.endDate = "La fecha límite debe ser posterior a la de inicio.";
@@ -148,7 +184,7 @@ function GoalFormModalContent({ goal, habitOptions, onClose, onSubmit, isSaving 
       title: form.title.trim(),
       description: form.description.trim() || undefined,
       targetValue: Number(form.targetValue),
-      unit: form.unit.trim(),
+      unit: effectiveUnit.trim(),
       startDate: form.startDate,
       endDate: form.endDate,
       progressSource: isHabitLinked ? "habit_logs" : "manual",
@@ -186,10 +222,12 @@ function GoalFormModalContent({ goal, habitOptions, onClose, onSubmit, isSaving 
           value={form.habitId}
           onChange={(event) => update("habitId", event.target.value)}
           options={habitSelectOptions}
-          disabled={lockedToGeneral || lockedToHabit}
+          disabled={habitSelectDisabled}
           hint={
             lockedToHabit
-              ? "El origen del progreso de una meta no se puede cambiar después de crearla — solo puedes elegir otro hábito compatible."
+              ? hasCompatibleAlternative
+                ? "El origen del progreso de una meta no se puede cambiar después de crearla — solo puedes elegir otro hábito compatible."
+                : "El origen del progreso no se puede cambiar. Todavía no existe otro hábito compatible (cantidad, duración o repeticiones) al que cambiar."
               : lockedToGeneral
                 ? "Esta meta es manual — el origen de su progreso no se puede cambiar después de crearla."
                 : undefined
@@ -225,10 +263,12 @@ function GoalFormModalContent({ goal, habitOptions, onClose, onSubmit, isSaving 
         </div>
         <Input
           label="Unidad"
-          value={form.unit}
+          value={effectiveUnit}
           onChange={(event) => update("unit", event.target.value)}
           placeholder="%, días, litros..."
           error={errors.unit}
+          disabled={unitLocked}
+          hint={unitLocked ? `Se toma automáticamente del hábito vinculado (${habitUnit}).` : undefined}
         />
         <div className="grid grid-cols-2 gap-3">
           <Input

@@ -5,7 +5,7 @@ import type { FrequencyType, GoalType, Habit } from "../../types/habit";
 import type { HabitDraft } from "../../hooks/useHabits";
 import { HABIT_COLOR_OPTIONS, HABIT_ICON_OPTIONS } from "../../utils/habitIcons";
 import { AppError } from "../../lib/errors";
-import { TODAY } from "../../data/referenceDate";
+import { getFormDefaultDate } from "../../data/referenceDate";
 import { Modal } from "../ui/Modal";
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
@@ -103,7 +103,7 @@ function toFormState(habit?: Habit): FormState {
     targetValue: habit?.targetValue?.toString() ?? "",
     targetUnit: habit?.targetUnit ?? "",
     deadlineTime: habit?.deadlineTime ?? "",
-    startDate: habit?.startDate ?? TODAY,
+    startDate: habit?.startDate ?? getFormDefaultDate(),
     endDate: habit?.endDate ?? "",
     allowPartial: habit?.allowPartial ?? true,
   };
