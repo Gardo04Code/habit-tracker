@@ -1,13 +1,26 @@
-# Regression — Contexto QA (7.9A → 7.9B, handoff)
+# Regression — Contexto QA (7.9A → 7.10B, cierre de release)
 
-## 0. Estado de 7.9B
+## 0. Estado final — RELEASE CLOSED
 
-**CLOSED — MANUAL RETEST PASSED (8/8).** Los 8 `BUG-PROD-00X`
-confirmados en Production Smoke fueron reprobados manualmente por el
-Product Owner contra el ambiente LOCAL (Supabase Local + frontend
-local) tras los fixes de 7.9A. Resultado: **8/8 PASSED** (uno de ellos,
-BUG-PROD-003, requirió un segundo ciclo — REOPENED → nueva causa raíz →
-nuevo fix → PASSED; ver sección 4).
+**7.9B: PASSED.** **7.10B Production: PASSED.** Ciclo completo cerrado:
+los 8 `BUG-PROD-00X` confirmados en Production Smoke fueron corregidos
+(7.9A), retesteados manualmente en local (7.9B, 8/8 PASSED — uno de
+ellos, BUG-PROD-003, requirió un segundo ciclo: REOPENED → nueva causa
+raíz → nuevo fix → PASSED; ver sección 4), commiteados y desplegados a
+Production (7.10B, release SHA `3eaa0af`), y reconfirmados con
+Production Smoke real post-deploy.
+
+**Resumen:**
+- Confirmed bugs: **8**
+- Production validation: **8/8 PASSED**
+- Open confirmed Production bugs: **0**
+- Pending Product Rule findings: **4** (sin cambios, ver sección 5 —
+  ninguno se marca resuelto solo porque el deployment fue exitoso)
+
+**No existe todavía una suite de regresión automatizada (Playwright).**
+Todo lo anterior — 7.9B y el Production Smoke de 7.10B — fue validado
+manualmente por el Product Owner. La automatización sigue siendo un
+bloque futuro (7.11+), no iniciado.
 
 **Distinción de baseline — no confundir:**
 - **CURRENT PRODUCTION** (`https://codgoli.com/habitos/`): sigue
@@ -22,6 +35,16 @@ nuevo fix → PASSED; ver sección 4).
 Redacción correcta: *"Fix validado localmente, listo para
 redeployment controlado."* — **nunca** *"bug de Production corregido"*
 hasta que se despliegue y se repita el Production Smoke.
+
+**Cadena final (7.10A → 7.10C):** LOCAL FIX VALIDATED → **COMMITTED**
+(release SHA `3eaa0af`, sobre `e452fef`) → build re-generado y
+re-auditado desde ese SHA (sin referencias Local/QA, URL de Production
+correcta) → **DEPLOYED** (subida manual vía Hostinger File Manager,
+detalle e incidente de path anidado en
+`MDs/14_DEPLOYMENT_PLAN.md`, sección "7.10B") → **PRODUCTION SMOKE
+PASSED** (verificado manualmente por el Product Owner contra
+`https://codgoli.com/habitos/` real, con Production DB ya limpiada de
+datos de Smoke/QA en 7.10B-1). Production ya refleja los 8 fixes.
 
 ### Ambiente de 7.9B (preparado, sin credenciales aquí)
 
@@ -169,8 +192,9 @@ Contexto/03_DEPLOYMENT/07_HOSTINGER_CONTEXT.md               (untracked)
   (D-05) — el defecto de producto real era la inconsistencia de unidad
   permitida por el frontend; el flujo final mantiene la unidad
   compatible en todo momento.
-- **Baseline: fix validado LOCALMENTE — Production sigue sin este fix
-  desplegado.**
+- **Baseline: DEPLOYED TO PRODUCTION — PRODUCTION SMOKE PASSED**
+  (release SHA `3eaa0af`, verificado manualmente por el Product Owner
+  contra `https://codgoli.com/habitos/` real).
 
 ### BUG-PROD-008 — Selector de hábito compatible no abre
 
@@ -201,8 +225,9 @@ Contexto/03_DEPLOYMENT/07_HOSTINGER_CONTEXT.md               (untracked)
   con éxito: la asociación cambió, la unidad se mantuvo en `vasos`, y el
   progreso se mantuvo en `8 de 40 vasos (20%)`.
 - **Estado final: FIXED — MANUAL RETEST PASSED.**
-- **Baseline: fix validado LOCALMENTE — Production sigue sin este fix
-  desplegado.**
+- **Baseline: DEPLOYED TO PRODUCTION — PRODUCTION SMOKE PASSED**
+  (release SHA `3eaa0af`, verificado manualmente por el Product Owner
+  contra `https://codgoli.com/habitos/` real).
 
 ### BUG-PROD-004 — Fecha de inicio por defecto incorrecta
 
@@ -234,8 +259,9 @@ Contexto/03_DEPLOYMENT/07_HOSTINGER_CONTEXT.md               (untracked)
   `19/08/2026`; Crear meta también mostró `19/08/2026`. El literal viejo
   (`21/07/2026`) no volvió a aparecer en ningún caso.
 - **Estado final: FIXED — MANUAL RETEST PASSED.**
-- **Baseline: fix validado LOCALMENTE — Production sigue sin este fix
-  desplegado.**
+- **Baseline: DEPLOYED TO PRODUCTION — PRODUCTION SMOKE PASSED**
+  (release SHA `3eaa0af`, verificado manualmente por el Product Owner
+  contra `https://codgoli.com/habitos/` real).
 
 ### BUG-PROD-006 — Métricas de Mis Hábitos inconsistentes
 
@@ -284,8 +310,9 @@ Contexto/03_DEPLOYMENT/07_HOSTINGER_CONTEXT.md               (untracked)
   Racha activa = 1 día, Hábitos en riesgo = 1. La vista dejó de mostrar
   las métricas mock/0 inconsistentes con Supabase.
 - **Estado final: FIXED — MANUAL RETEST PASSED.**
-- **Baseline: fix validado LOCALMENTE — Production sigue sin este fix
-  desplegado.**
+- **Baseline: DEPLOYED TO PRODUCTION — PRODUCTION SMOKE PASSED**
+  (release SHA `3eaa0af`, verificado manualmente por el Product Owner
+  contra `https://codgoli.com/habitos/` real).
 
 ### BUG-PROD-007 — Lifecycle de metas inconsistente
 
@@ -332,8 +359,9 @@ Contexto/03_DEPLOYMENT/07_HOSTINGER_CONTEXT.md               (untracked)
   lifecycle nunca afectó el cálculo de progreso (ejes independientes,
   como se documentó).
 - **Estado final: FIXED — MANUAL RETEST PASSED.**
-- **Baseline: fix validado LOCALMENTE — Production sigue sin este fix
-  desplegado.**
+- **Baseline: DEPLOYED TO PRODUCTION — PRODUCTION SMOKE PASSED**
+  (release SHA `3eaa0af`, verificado manualmente por el Product Owner
+  contra `https://codgoli.com/habitos/` real).
 
 ### BUG-PROD-002 — Settings en blanco tras navegación SPA
 
@@ -367,8 +395,9 @@ Contexto/03_DEPLOYMENT/07_HOSTINGER_CONTEXT.md               (untracked)
   sin F5 y sin navegación directa por URL. El problema original de
   página en blanco no se reprodujo tras el fix.
 - **Estado final: FIXED — MANUAL RETEST PASSED.**
-- **Baseline: fix validado LOCALMENTE — Production sigue sin este fix
-  desplegado.**
+- **Baseline: DEPLOYED TO PRODUCTION — PRODUCTION SMOKE PASSED**
+  (release SHA `3eaa0af`, verificado manualmente por el Product Owner
+  contra `https://codgoli.com/habitos/` real).
 
 ### BUG-PROD-003 — Switches desbordados
 
@@ -431,8 +460,9 @@ un segundo defecto independiente en el propio thumb del switch.
     parciales): PASSED — el switch permaneció dentro del modal/track
     sin desborde.
 - **Estado final: FIXED — MANUAL RETEST PASSED AFTER REOPEN.**
-- **Baseline: fix validado LOCALMENTE — Production sigue sin este fix
-  desplegado.**
+- **Baseline: DEPLOYED TO PRODUCTION — PRODUCTION SMOKE PASSED**
+  (release SHA `3eaa0af`, verificado manualmente por el Product Owner
+  contra `https://codgoli.com/habitos/` real).
 
 ### BUG-PROD-001 — Transparencia excesiva de modales
 
@@ -461,8 +491,9 @@ un segundo defecto independiente en el propio thumb del switch.
   aspecto "premium" oscuro, legibilidad mejorada. El fix de superficie
   específica para modales se da por aceptado visualmente.
 - **Estado final: FIXED — MANUAL RETEST PASSED.**
-- **Baseline: fix validado LOCALMENTE — Production sigue sin este fix
-  desplegado.**
+- **Baseline: DEPLOYED TO PRODUCTION — PRODUCTION SMOKE PASSED**
+  (release SHA `3eaa0af`, verificado manualmente por el Product Owner
+  contra `https://codgoli.com/habitos/` real).
 
 ## 5. Hallazgos pendientes de regla de negocio (sección 9 del handoff) — clasificación con evidencia
 

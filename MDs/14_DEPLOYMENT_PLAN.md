@@ -4507,3 +4507,254 @@ Recommended pre-upload backup action: antes de sobrescribir, descargar/copiar ma
 auditado a `public_html/habitos/`, con autorización explícita separada
 y — recomendado — tras backup manual del contenido actual. No
 autorizado por este bloque.
+
+## 7.10B — Controlled Redeployment
+
+**Status: PASSED.** Release `3eaa0af` desplegado a Production
+(`https://codgoli.com/habitos/`) y Production Smoke confirmado
+**PASSED** por el Product Owner. La parte de código (commit, rebuild,
+auditoría del artefacto) se ejecutó en este entorno; el resto —
+limpieza de datos de Production, backup, subida a Hostinger y todo el
+Smoke post-deploy — requirió ejecución manual del Product Owner (mismo
+patrón ya documentado en 7.7C y 7.8: este entorno no tiene herramienta
+de acceso a Hostinger ni de navegador para interactuar con la sesión
+real de Production).
+
+### Lo que SÍ se ejecutó en este entorno (código, local, con herramientas disponibles)
+
+**1. Release commit (autorizado explícitamente por el Product Owner):**
+- Pre-release SHA: `e452fef`
+- **Release SHA: `3eaa0af`**
+- 24 archivos incluidos, verificados uno por uno contra `.gitignore` y
+  escaneados por credenciales/rutas Local antes de `git add` — cero
+  coincidencias de `qa.local@habittracker.test`, la contraseña QA local,
+  `.env.local`/`.env.production.local`, `dist/`, capturas de pantalla,
+  logs o volcados de depuración. Categorías incluidas: baseline
+  deployed-but-uncommitted de 7.7A (`src/main.tsx`, `public/.htaccess`),
+  los 12 archivos de fixes de 7.9A (incluye `Toggle.tsx`, que contiene
+  además el segundo fix de BUG-PROD-003 en el mismo archivo — no se
+  pudo separar en dos commits sin staging interactivo, no disponible en
+  este entorno), y 10 archivos de documentación QA/Deployment.
+- Mensaje de commit: Conventional Commits, detalla los 8 bugs
+  corregidos, sin cambios de schema/migración. Sin `--no-verify`, sin
+  bypass de firma.
+- `git push`: **NO ejecutado** (prohibido explícitamente en este
+  bloque). `git status -sb` confirma `main...origin/main [ahead 1]`.
+
+**2. Rebuild desde el SHA exacto del release, re-verificado:**
+```
+npx tsc --noEmit                                  → Passed
+npm run lint                                       → Passed
+npm audit                                           → 0 vulnerabilidades
+MSYS_NO_PATHCONV=1 npx vite build --base=/habitos/  → Passed
+```
+Hashes de contenido **idénticos** al build de 7.10A (`index-DF_UjmWg.js`,
+`index-guW9CQrf.css`, `StatusDonut3D-BbyOQMCK.js`) — esperado y
+correcto: el commit no cambió ningún byte de contenido fuente, solo lo
+incorporó al historial de Git, confirmando que el build es
+determinista/reproducible desde el árbol de trabajo commiteado.
+
+SHA-256 del artefacto final (7 archivos, para verificación posterior si
+hace falta):
+```
+9f4930b3...  dist/index.html
+048a0a9f...  dist/.htaccess
+61bc9a16...  dist/favicon.svg
+b45fa506...  dist/icons.svg
+0ea6ba44...  dist/assets/StatusDonut3D-BbyOQMCK.js
+d5644883...  dist/assets/index-DF_UjmWg.js
+0df4a97b...  dist/assets/index-guW9CQrf.css
+```
+
+**3. Re-auditoría de seguridad del artefacto post-commit:** mismo
+resultado que 7.10A — `127.0.0.1`/`localhost` solo como constantes
+internas de `@supabase/auth-js`/`react-router` (librerías de terceros,
+no configuración propia); **ZERO** coincidencias de `:54321`/`:54322`,
+credenciales QA, `service_role`. URL de Production
+(`xgasncrztfwotjlghlfg.supabase.co`) confirmada embebida correctamente
+(única coincidencia). `dist/.htaccess` byte-idéntico a `public/.htaccess`.
+`index.html` válido, rutas `/habitos/assets/...` correctas.
+
+**4. Verificación local de rutas:** servido con
+`vite preview --base=/habitos/` (mismo build post-commit) —
+`http://localhost:4173/habitos/` responde `200`.
+
+### 7.10B-1 — Production Smoke Data Cleanup (ejecutado antes del deploy)
+
+**Status: PASSED.** Antes de subir el nuevo frontend, el Product Owner
+decidió que Production debía quedar sin datos funcionales de QA/Smoke,
+preservando exclusivamente su propia cuenta.
+
+- **Conteo pre-cleanup verificado en vivo:** `auth.users=1`,
+  `profiles=1`, `categories=1`, `habits=3`, `habit_categories=3`,
+  `habit_schedules=3`, `habit_logs=2`, `goals=2`.
+- **Entidades verificadas como Smoke/QA** (por nombre y ownership, cero
+  discrepancias de owner en `categories`/`habits`/`goals`):
+  - Categoría: `Smoke Producción`.
+  - Hábitos: `Prueba de despliegue`, `Smoke — Beber agua`, `Smoke —
+    Vasos de agua`.
+  - Metas: `Smoke — Constancia inicial`, `Smoke — Meta general`.
+- **Primer intento de limpieza: FAILED SAFELY.** El trigger
+  `enforce_habit_log_edit_window_trg` (función
+  `public.enforce_habit_log_edit_window()`) bloqueó el `DELETE` de
+  `habit_logs` con más de 7 días de antigüedad ("records older than the
+  seven-day edit window are read-only") — comportamiento correcto de la
+  ventana de edición ya documentada en las reglas de negocio, no
+  diseñada para permitir borrado administrativo directo. Rollback de la
+  transacción verificado; conteos permanecieron sin cambios
+  (`1/1/1/3/3/3/2/2`) tras el intento fallido.
+- **Transacción final (exitosa):** validó el dataset de Smoke exacto,
+  deshabilitó temporalmente **únicamente**
+  `enforce_habit_log_edit_window_trg`, borró los datos funcionales de
+  Smoke/QA, **re-habilitó ese mismo trigger**, verificó que quedara
+  habilitado, y confirmó `auth.users`/`profiles` intactos antes de
+  hacer `COMMIT`.
+- **Conteo final verificado:** `auth.users=1`, `profiles=1`,
+  `categories=habits=habit_categories=habit_schedules=habit_logs=
+  goals=0`.
+- Usuario y perfil de Production preservados. Schema, migraciones y RLS
+  sin cambios.
+
+### Deployment artifact
+
+- Release SHA: `3eaa0af`.
+- Artefacto: `habitos-7.10B-deploy.zip`, SHA-256
+  `50f418e0fe8b028afc86220208321cbcaa311dabca2e8b417ab2cc48587d9ebb`, 7
+  entradas (`​.htaccess`, `favicon.svg`, `icons.svg`, `index.html`,
+  `assets/index-DF_UjmWg.js`, `assets/index-guW9CQrf.css`,
+  `assets/StatusDonut3D-BbyOQMCK.js`), sin carpeta contenedora.
+- **Incidente detectado y corregido antes de la subida:** el primer ZIP
+  (generado con `Compress-Archive` de PowerShell) guardaba las entradas
+  con separador `\` (backslash) en vez de `/`, un defecto conocido de
+  ese cmdlet en Windows — confirmado con `unzip -l` (advirtió
+  explícitamente sobre esto) y con una extracción de prueba. Se
+  reconstruyó el ZIP con la API `System.IO.Compression.ZipArchive`
+  (rutas `/` explícitas) y se revalidó por extracción completa contra
+  `dist/` antes de entregarlo para la subida.
+
+### Hostinger — subida manual
+
+**Método: MANUAL HOSTINGER FILE MANAGER** (sin automatización — este
+entorno no tiene herramienta de acceso a Hostinger).
+
+- **Incidente de path anidado:** la extracción inicial del ZIP en
+  Hostinger colocó el release bajo
+  `public_html/habitos/public_html/habitos/` (anidado incorrectamente)
+  en vez de directamente en `public_html/habitos/`. No se declaró falla
+  de Production en ese momento — el Product Owner movió manualmente los
+  archivos nuevos a la ruta correcta (`public_html/habitos/`),
+  reemplazando `index.html`, `.htaccess`, `favicon.svg`, `icons.svg` y
+  `assets/` (con los 3 archivos finales:
+  `index-DF_UjmWg.js`/`index-guW9CQrf.css`/`StatusDonut3D-BbyOQMCK.js`).
+  El residuo temporal de la extracción anidada fue limpiado por el
+  Product Owner después de confirmar el Smoke exitoso.
+
+### Production Smoke (post-deploy)
+
+**Status: PASSED**, verificado manualmente por el Product Owner contra
+`https://codgoli.com/habitos/` real:
+
+- Aplicación principal carga correctamente; Dashboard → Checklist →
+  Mis hábitos → Historial → Estadísticas → Metas → Configuración: sin
+  ninguna página en blanco.
+- Datos de aplicación: vacíos/limpios — sin hábitos, metas, categorías
+  ni historial de QA (confirma el resultado de 7.10B-1).
+- Modal de Crear Hábito: PASSED (opacidad correcta, toggle visualmente
+  correcto) — sin guardar datos.
+- Modal de Crear Meta: PASSED (fecha correcta, comportamiento de
+  unidad/selector correcto donde aplica) — sin guardar datos.
+- Logout → Login: PASSED.
+
+**Bug-por-bug (Production real):** BUG-PROD-001 a 008 — **8/8 PASSED
+IN PRODUCTION.** Detalle causa raíz/fix/retest local de cada uno en
+`Contexto/04_QA/02_REGRESSION_CONTEXT.md`, sección 4 — esta sección
+solo añade la confirmación final en Production, no reemplaza esa
+evidencia.
+
+**Rollback: NOT REQUIRED.**
+
+### Seguridad — confirmación expresa de este bloque
+
+No se modificó schema, RLS, policies, functions, triggers ni
+constraints (el trigger de edición de logs fue deshabilitado y
+re-habilitado dentro de la misma transacción de limpieza, sin cambiar
+su definición). No se ejecutó `db push`, no se aplicó ninguna
+migración nueva, no se modificó Auth de Production, no se creó ningún
+usuario nuevo. No se instaló Playwright ni ninguna dependencia nueva.
+El único cambio de estado de Git en este bloque fue el commit local
+`3eaa0af`, explícitamente autorizado; `git push` se ejecuta en 7.10C.
+
+### Próximo paso
+
+**7.10C — Release Closure**: commit de cierre documental y `git push`
+a `origin/main`, con autorización explícita separada del Product
+Owner (ver sección siguiente).
+
+## 7.10C — Release Closure
+
+**Status: COMPLETED.**
+
+Bloque exclusivamente documental + cierre de Git — sin ningún cambio
+adicional a Production DB, Auth, Hostinger, ni código funcional.
+
+### Resumen del release
+
+```
+Application:              Habit Tracker
+Target:                    https://codgoli.com/habitos/
+Release SHA:                3eaa0af
+Deployment:                 SUCCESS (manual, Hostinger File Manager)
+Production Smoke:            PASSED (8/8 BUG-PROD-00X)
+Rollback required:           NO
+Production DB:                clean functional state (0 filas de dominio, auth.users=1, profiles=1)
+```
+
+### Cambios de este bloque
+
+- `.gitignore`: se agregó la regla específica `habitos-*-deploy.zip`
+  (no un `*.zip` genérico, para no ocultar por accidente algún ZIP que
+  el proyecto decida versionar intencionalmente en el futuro) — el
+  artefacto de deployment nunca debe commitearse.
+- Documentación finalizada: `Contexto/03_DEPLOYMENT/
+  03_DEPLOYMENT_MASTER_CONTEXT.md`, `Contexto/04_QA/
+  02_REGRESSION_CONTEXT.md`, `Contexto/04_QA/
+  01_PRODUCTION_SMOKE_CONTEXT.md` (disposición final añadida,
+  evidencia original preservada), y esta misma sección de
+  `MDs/14_DEPLOYMENT_PLAN.md`.
+- Sin cambios de código funcional — confirmado con `git diff --stat`
+  antes de commitear (solo 3 archivos de documentación + `.gitignore`).
+
+### Commit de cierre y push
+
+Commit de cierre documental creado con mensaje `docs: close production
+redeployment and smoke validation` (SHA reportado en el checkpoint de
+la sesión que cerró este bloque, no auto-referenciado aquí). `git push
+origin main` ejecutado tras ese commit, con autorización explícita del
+Product Owner. `habitos-7.10B-deploy.zip` y `dist/` permanecen
+localmente, sin commitear (ambos cubiertos por `.gitignore`).
+
+### Estado final de los 8 bugs
+
+Los 8 `BUG-PROD-00X` completaron la cadena completa:
+**ORIGINAL PRODUCTION OBSERVATION → LOCAL FIX (7.9A) → LOCAL MANUAL
+RETEST (7.9B, 8/8, incluye la reapertura de BUG-PROD-003) → RELEASE SHA
+`3eaa0af` → PRODUCTION REDEPLOYMENT (7.10B) → PRODUCTION SMOKE PASSED
+(7.10B)**. Ninguno permanece abierto en Production. Detalle completo,
+sin sobrescribir la evidencia original, en
+`Contexto/04_QA/01_PRODUCTION_SMOKE_CONTEXT.md` y
+`Contexto/04_QA/02_REGRESSION_CONTEXT.md`.
+
+### Hallazgos pendientes de regla de negocio — sin cambios
+
+Los 4 hallazgos (meta vencida sigue activa, meta al 100% sigue activa,
+consejo de IA no confirmado, rankings con dataset disperso) siguen
+**Pending Product Rule / Not Confirmed** — ninguno se cierra ni se
+reclasifica solo porque el deployment fue exitoso. Requieren decisión
+de producto separada del Product Owner.
+
+### Próxima fase
+
+No decidida en este bloque — corresponde a una decisión separada del
+Product Owner (posible candidato: 7.11, fundamento de testing
+automatizado con Playwright, explícitamente no iniciado ni instalado
+en ningún bloque hasta ahora).

@@ -312,3 +312,49 @@ sección "7.10A — Controlled Redeployment Preparation". Resumen:
 
 No se erasa ni se reemplaza el historial de 7.1-7.8 de este documento
 — esta sección es aditiva.
+
+## Actualización 7.10B — Release commiteado, deployment pendiente de ejecución manual
+
+**LOCAL FIX VALIDATED → COMMITTED → DEPLOYMENT PENDING.**
+
+El Product Owner autorizó explícitamente el commit del Release
+Candidate. Estado actual:
+
+- **Release SHA: `3eaa0af`** (sobre `e452fef`). `git push`: **NO
+  ejecutado** — pendiente de autorización separada.
+- Build re-generado y re-auditado desde ese SHA exacto: mismo resultado
+  que 7.10A (hashes de contenido idénticos, sin referencias reales
+  Local/QA, URL de Production correctamente embebida).
+- **Producción sigue sin actualizar.** Este entorno no tiene
+  herramienta de acceso a Hostinger ni de navegador (mismo bloqueo ya
+  documentado en 7.7C/7.8) — backup, subida, y Production Smoke
+  quedan pendientes de ejecución manual del Product Owner. Detalle
+  completo y checklist exacto en `MDs/14_DEPLOYMENT_PLAN.md`, sección
+  "7.10B — Controlled Redeployment".
+
+No se erasa ni se reemplaza ningún historial anterior — esta sección
+es aditiva.
+
+## Actualización 7.10B (cierre) — Desplegado, Production Smoke PASSED
+
+**Cadena final: LOCAL FIX VALIDATED → COMMITTED → DEPLOYED → PRODUCTION
+SMOKE PASSED.**
+
+- **Release SHA: `3eaa0af`.**
+- **Deployment: SUCCESS.** Ejecutado manualmente por el Product Owner
+  vía Hostinger File Manager (método manual, no automatizado desde este
+  entorno — sin herramienta de acceso a Hostinger). Los 7 archivos del
+  release quedaron correctamente ubicados en `public_html/habitos/`
+  tras corregir un incidente de extracción anidada (detalle completo en
+  `MDs/14_DEPLOYMENT_PLAN.md`, sección "7.10B").
+- **Production DB:** limpiada de datos funcionales de Smoke/QA antes
+  del redeploy (7.10B-1) — estado limpio funcional: `auth.users=1`,
+  `profiles=1`, `categories=habits=habit_categories=habit_schedules=
+  habit_logs=goals=0`. Usuario y perfil de Production preservados.
+- **Production Smoke (post-deploy): PASSED.** Los 8 `BUG-PROD-00X`
+  confirmados como resueltos en Production real por el Product Owner.
+- **Rollback: NOT REQUIRED.**
+- **`git push`: pendiente de este mismo bloque de cierre (7.10C).**
+
+No se erasa ni se reemplaza ningún historial anterior — esta sección es
+aditiva.

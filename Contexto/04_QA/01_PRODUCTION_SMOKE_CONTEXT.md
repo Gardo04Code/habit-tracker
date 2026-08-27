@@ -207,22 +207,25 @@ ver secciones 8 y 9):
 
 ## 8. Confirmed Production Bugs
 
-Todos con estado **OPEN en Production** al cierre de este handoff
-(evidencia original de esta sección preservada sin modificar). **Ciclo
-completo 7.9A → 7.9B ya cerrado localmente:** los 8 recibieron un fix
-candidato en 7.9A y **retest manual PASSED en 7.9B contra Supabase
-Local** (8/8 — uno de ellos, BUG-PROD-003, requirió reapertura y un
-segundo fix antes de pasar) — ver
+**FINAL DISPOSITION (7.10B): DEPLOYED / PRODUCTION SMOKE PASSED.**
+Todos los 8 originalmente registrados con estado **OPEN en Production**
+en este handoff (evidencia original de esta sección preservada sin
+modificar abajo) siguieron el ciclo completo: fix candidato en 7.9A →
+retest manual **PASSED en 7.9B** contra Supabase Local (8/8 — uno de
+ellos, BUG-PROD-003, requirió reapertura y un segundo fix antes de
+pasar) → commit (release SHA `3eaa0af`) → **deployment manual a
+Production vía Hostinger** → **Production Smoke real PASSED**,
+verificado por el Product Owner contra `https://codgoli.com/habitos/`
+en vivo, con la base de datos de Production ya limpiada de datos
+funcionales de Smoke/QA (7.10B-1). Ver
 `Contexto/04_QA/02_REGRESSION_CONTEXT.md` para causa raíz, archivos,
-retest manual y estado final de cada uno.
+retest manual y estado final de cada uno, y
+`MDs/14_DEPLOYMENT_PLAN.md` sección "7.10B" para el deployment completo.
 
-**Importante — no confundir "retest local PASSED" con "corregido en
-Production":** ninguno de los 8 fixes está desplegado en
-`https://codgoli.com/habitos/` todavía. Production sigue ejecutando el
-build de 7.7C, con los 8 bugs originales tal como se describen abajo,
-hasta que se ejecute un redeployment controlado y se repita el
-Production Smoke. IDs estables `BUG-PROD-00X`, no reutilizar
-numeración.
+Los 8 bugs originales descritos a continuación reflejan el
+comportamiento observado **antes** del fix — se preservan tal cual para
+mantener la evidencia histórica del Production Smoke original. IDs
+estables `BUG-PROD-00X`, no reutilizar numeración.
 
 ### BUG-PROD-001 — Transparencia excesiva de modales
 - **Severidad sugerida:** Media (UX/legibilidad).

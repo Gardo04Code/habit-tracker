@@ -12,6 +12,12 @@ dist
 dist-ssr
 *.local
 
+# Deployment artifacts (e.g. habitos-7.10B-deploy.zip) — build outputs
+# prepared for manual Hostinger upload, never versioned. Narrow pattern
+# (not a blanket *.zip) so any future intentionally-versioned ZIP isn't
+# silently hidden.
+habitos-*-deploy.zip
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
